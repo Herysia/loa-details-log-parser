@@ -5,28 +5,36 @@ import * as LogLines from "./log-lines";
 import { tryParseInt } from "./util";
 import { healingSkills, HitFlag, HitOption } from "./constants";
 
-interface Game {
+export interface DamageStatistics {
+  totalDamageDealt: number;
+  topDamageDealt: number;
+  totalDamageTaken: number;
+  topDamageTaken: number;
+  totalHealingDone: number;
+  topHealingDone: number;
+  totalShieldDone: number;
+  topShieldDone: number;
+}
+export interface Game {
   startedOn: number;
   lastCombatPacket: number;
   fightStartedOn: number;
   entities: { [name: string]: Entity };
-  damageStatistics: {
-    totalDamageDealt: number;
-    topDamageDealt: number;
-    totalDamageTaken: number;
-    topDamageTaken: number;
-    totalHealingDone: number;
-    topHealingDone: number;
-    totalShieldDone: number;
-    topShieldDone: number;
-  };
+  damageStatistics: DamageStatistics;
 }
-interface HealSource {
+export interface GameNew {
+  startedOn: number;
+  lastCombatPacket: number;
+  fightStartedOn: number;
+  entities: { [name: string]: Entity };
+  damageStatistics: DamageStatistics;
+}
+export interface HealSource {
   source: string;
   expires: number;
 }
 
-interface Entity {
+export interface Entity {
   lastUpdate: number;
   id: string;
   npcId: number;
@@ -48,7 +56,7 @@ interface Entity {
   hits: Hits;
 }
 
-interface Breakdown {
+export interface Breakdown {
   timestamp: number;
   damage: number;
   targetEntity: string;
@@ -57,7 +65,7 @@ interface Breakdown {
   isFrontAttack: boolean;
 }
 
-interface EntitySkills {
+export interface EntitySkills {
   id: number;
   name: string;
   totalDamage: number;

@@ -1,5 +1,15 @@
 import { EventEmitter } from 'events';
 
+interface DamageStatistics {
+    totalDamageDealt: number;
+    topDamageDealt: number;
+    totalDamageTaken: number;
+    topDamageTaken: number;
+    totalHealingDone: number;
+    topHealingDone: number;
+    totalShieldDone: number;
+    topShieldDone: number;
+}
 interface Game {
     startedOn: number;
     lastCombatPacket: number;
@@ -7,16 +17,16 @@ interface Game {
     entities: {
         [name: string]: Entity;
     };
-    damageStatistics: {
-        totalDamageDealt: number;
-        topDamageDealt: number;
-        totalDamageTaken: number;
-        topDamageTaken: number;
-        totalHealingDone: number;
-        topHealingDone: number;
-        totalShieldDone: number;
-        topShieldDone: number;
+    damageStatistics: DamageStatistics;
+}
+interface GameNew {
+    startedOn: number;
+    lastCombatPacket: number;
+    fightStartedOn: number;
+    entities: {
+        [name: string]: Entity;
     };
+    damageStatistics: DamageStatistics;
 }
 interface HealSource {
     source: string;
@@ -104,4 +114,4 @@ declare class LogParser extends EventEmitter {
     onCounterattack(lineSplit: string[]): void;
 }
 
-export { LogParser };
+export { Breakdown, DamageStatistics, Entity, EntitySkills, Game, GameNew, HealSource, LogParser };
