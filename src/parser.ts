@@ -78,9 +78,9 @@ function createEntitySkill(): EntitySkills {
       crit: 0,
       backAttack: 0,
       frontAttack: 0,
-      counter: 0
+      counter: 0,
     },
-    breakdown: []
+    breakdown: [],
   };
   return newEntitySkill;
 }
@@ -119,14 +119,14 @@ function createEntity(): Entity {
       crit: 0,
       backAttack: 0,
       frontAttack: 0,
-      counter: 0
-    }
+      counter: 0,
+    },
   };
   return newEntity;
 }
 
 export class LogParser extends EventEmitter {
-  resetTimer: ReturnType<typeof setTimeout>;
+  resetTimer: ReturnType<typeof setTimeout> | null;
 
   debugLines: boolean;
   isLive: boolean;
@@ -138,9 +138,9 @@ export class LogParser extends EventEmitter {
   phaseTransitionResetRequest: boolean;
   phaseTransitionResetRequestTime: number;
 
-  game: Game;
+  game!: Game;
   encounters: Game[];
-  healSources: HealSource[];
+  healSources!: HealSource[];
 
   constructor(isLive = false) {
     super();
@@ -169,7 +169,7 @@ export class LogParser extends EventEmitter {
     if (this.debugLines)
       this.emit("log", {
         type: "debug",
-        message: "Resetting state"
+        message: "Resetting state",
       });
 
     const clone = cloneDeep(this.game);
@@ -188,8 +188,8 @@ export class LogParser extends EventEmitter {
         totalHealingDone: 0,
         topHealingDone: 0,
         totalShieldDone: 0,
-        topShieldDone: 0
-      }
+        topShieldDone: 0,
+      },
     };
 
     this.healSources = [];
@@ -199,20 +199,19 @@ export class LogParser extends EventEmitter {
     this.resetTimer = null;
     const entitiesCopy = cloneDeep(this.game.entities);
     this.resetState();
-    for (const entity of Object.keys(entitiesCopy)) {
+    for (const entity of Object.values(entitiesCopy)) {
       // don't keep entity if it hasn't been updated in 10 minutes
-      if (+new Date() - entitiesCopy[entity].lastUpdate > 10 * 60 * 1000)
-        continue;
+      if (+new Date() - entity.lastUpdate > 10 * 60 * 1000) continue;
 
-      this.updateEntity(entitiesCopy[entity].name, {
-        name: entitiesCopy[entity].name,
-        npcId: entitiesCopy[entity].npcId,
-        class: entitiesCopy[entity].class,
-        classId: entitiesCopy[entity].classId,
-        isPlayer: entitiesCopy[entity].isPlayer,
-        gearScore: entitiesCopy[entity].gearScore,
-        maxHp: entitiesCopy[entity].maxHp,
-        currentHp: entitiesCopy[entity].currentHp
+      this.updateEntity(entity.name, {
+        name: entity.name,
+        npcId: entity.npcId,
+        class: entity.class,
+        classId: entity.classId,
+        isPlayer: entity.isPlayer,
+        gearScore: entity.gearScore,
+        maxHp: entity.maxHp,
+        currentHp: entity.currentHp,
       });
     }
   }
@@ -224,8 +223,7 @@ export class LogParser extends EventEmitter {
     const curState = cloneDeep(this.game);
     if (
       curState.fightStartedOn != 0 && // no combat packets
-      (curState.damageStatistics.totalDamageDealt != 0 ||
-        curState.damageStatistics.totalDamageTaken) // no player damage dealt OR taken
+      (curState.damageStatistics.totalDamageDealt != 0 || curState.damageStatistics.totalDamageTaken) // no player damage dealt OR taken
     )
       this.encounters.push(curState);
     this.resetState();
@@ -234,11 +232,11 @@ export class LogParser extends EventEmitter {
   broadcastStateChange() {
     const clone: Game = cloneDeep(this.game);
     // Dont send breakdowns; will hang up UI
-    Object.values(clone.entities).forEach(entity => {
-      Object.values(entity.skills).forEach(skill => {
+    Object.values(clone.entities).forEach((entity) => {
+      Object.values(entity.skills).forEach((skill) => {
         skill.breakdown = [];
-      })
-    })
+      });
+    });
 
     this.emit("state-change", clone);
   }
@@ -295,19 +293,20 @@ export class LogParser extends EventEmitter {
     }
   }
 
-  updateEntity(entityName: string, values) {
+  updateEntity(entityName: string, values: {}) {
     const updateTime = { lastUpdate: +new Date() };
     if (!(entityName in this.game.entities)) {
       this.game.entities[entityName] = {
         ...createEntity(),
         ...values,
-        ...updateTime
+        ...updateTime,
       };
     } else {
       this.game.entities[entityName] = {
+        ...createEntity(),
         ...this.game.entities[entityName],
         ...values,
-        ...updateTime
+        ...updateTime,
       };
     }
   }
@@ -319,7 +318,7 @@ export class LogParser extends EventEmitter {
     if (this.debugLines) {
       this.emit("log", {
         type: "debug",
-        message: `onMessage: ${logLine.message}`
+        message: `onMessage: ${logLine.message}`,
       });
     }
 
@@ -335,7 +334,7 @@ export class LogParser extends EventEmitter {
     if (this.debugLines) {
       this.emit("log", {
         type: "debug",
-        message: `onInitEnv`
+        message: `onInitEnv`,
       });
     }
 
@@ -344,7 +343,7 @@ export class LogParser extends EventEmitter {
         if (this.debugLines) {
           this.emit("log", {
             type: "debug",
-            message: `Setting a reset timer`
+            message: `Setting a reset timer`,
           });
         }
 
@@ -364,15 +363,12 @@ export class LogParser extends EventEmitter {
     if (this.debugLines) {
       this.emit("log", {
         type: "debug",
-        message: `onPhaseTransition: ${logLine.phaseCode}`
+        message: `onPhaseTransition: ${logLine.phaseCode}`,
       });
     }
 
     if (this.isLive) {
-      this.emit(
-        "message",
-        `phase-transition-${logLine.phaseCode}`
-      );
+      this.emit("message", `phase-transition-${logLine.phaseCode}`);
 
       if (this.resetAfterPhaseTransition) {
         this.phaseTransitionResetRequest = true;
@@ -392,7 +388,7 @@ export class LogParser extends EventEmitter {
     if (this.debugLines) {
       this.emit("log", {
         type: "debug",
-        message: `onNewPc: ${logLine.id}, ${logLine.name}, ${logLine.classId}, ${logLine.class}, ${logLine.gearScore}, ${logLine.currentHp}, ${logLine.maxHp}`
+        message: `onNewPc: ${logLine.id}, ${logLine.name}, ${logLine.classId}, ${logLine.class}, ${logLine.gearScore}, ${logLine.currentHp}, ${logLine.maxHp}`,
       });
     }
 
@@ -402,10 +398,9 @@ export class LogParser extends EventEmitter {
       class: logLine.class,
       classId: logLine.classId,
       isPlayer: true,
-      ...(logLine.gearScore &&
-        logLine.gearScore != 0 && { gearScore: logLine.gearScore }),
+      ...(logLine.gearScore && logLine.gearScore != 0 && { gearScore: logLine.gearScore }),
       currentHp: logLine.currentHp,
-      maxHp: logLine.maxHp
+      maxHp: logLine.maxHp,
     });
   }
 
@@ -416,7 +411,7 @@ export class LogParser extends EventEmitter {
     if (this.debugLines) {
       this.emit("log", {
         type: "debug",
-        message: `onNewNpc: ${logLine.id}, ${logLine.name}, ${logLine.currentHp}, ${logLine.maxHp}`
+        message: `onNewNpc: ${logLine.id}, ${logLine.name}, ${logLine.currentHp}, ${logLine.maxHp}`,
       });
     }
 
@@ -426,7 +421,7 @@ export class LogParser extends EventEmitter {
       npcId: logLine.npcId,
       isPlayer: false,
       currentHp: logLine.currentHp,
-      maxHp: logLine.maxHp
+      maxHp: logLine.maxHp,
     });
   }
 
@@ -437,7 +432,7 @@ export class LogParser extends EventEmitter {
     if (this.debugLines) {
       this.emit("log", {
         type: "debug",
-        message: `onDeath: ${logLine.name} ${logLine.killerName}`
+        message: `onDeath: ${logLine.name} ${logLine.killerName}`,
       });
     }
 
@@ -463,20 +458,20 @@ export class LogParser extends EventEmitter {
     if (this.debugLines) {
       this.emit("log", {
         type: "debug",
-        message: `onSkillStart: ${logLine.id}, ${logLine.name}, ${logLine.skillId}, ${logLine.skillName}`
+        message: `onSkillStart: ${logLine.id}, ${logLine.name}, ${logLine.skillId}, ${logLine.skillName}`,
       });
     }
 
     if (Object.keys(healingSkills).includes(logLine.skillName)) {
       this.healSources.push({
         source: logLine.name,
-        expires: +logLine.timestamp + healingSkills[logLine.skillName].duration
+        expires: +logLine.timestamp + healingSkills[logLine.skillName]!.duration,
       });
     }
 
     this.updateEntity(logLine.name, {
       name: logLine.name,
-      isDead: false
+      isDead: false,
     });
 
     const entity = this.game.entities[logLine.name];
@@ -486,9 +481,9 @@ export class LogParser extends EventEmitter {
       if (!(logLine.skillName in entity.skills)) {
         entity.skills[logLine.skillName] = {
           ...createEntitySkill(),
-          ...{ id: logLine.skillId, name: logLine.skillName }
+          ...{ id: logLine.skillId, name: logLine.skillName },
         };
-        entity.skills[logLine.skillName].hits.casts += 1;
+        entity.skills[logLine.skillName]!.hits.casts += 1;
       }
     }
   }
@@ -500,7 +495,7 @@ export class LogParser extends EventEmitter {
     if (this.debugLines) {
       this.emit("log", {
         type: "debug",
-        message: `onSkillStage: ${logLine.name}, ${logLine.skillId}, ${logLine.skillName}, ${logLine.skillStage}`
+        message: `onSkillStage: ${logLine.name}, ${logLine.skillId}, ${logLine.skillName}, ${logLine.skillStage}`,
       });
     }
   }
@@ -513,7 +508,7 @@ export class LogParser extends EventEmitter {
     if (this.debugLines) {
       this.emit("log", {
         type: "debug",
-        message: `onDamage: ${logLine.id}, ${logLine.name}, ${logLine.skillId}, ${logLine.skillName}, ${logLine.skillEffectId}, ${logLine.skillEffect}, ${logLine.targetId}, ${logLine.targetName}, ${logLine.damage}, ${logLine.currentHp}, ${logLine.maxHp}`
+        message: `onDamage: ${logLine.id}, ${logLine.name}, ${logLine.skillId}, ${logLine.skillName}, ${logLine.skillEffectId}, ${logLine.skillEffect}, ${logLine.targetId}, ${logLine.targetName}, ${logLine.damage}, ${logLine.currentHp}, ${logLine.maxHp}`,
       });
     }
 
@@ -528,36 +523,32 @@ export class LogParser extends EventEmitter {
 
     this.updateEntity(logLine.name, {
       id: logLine.id,
-      name: logLine.name
+      name: logLine.name,
     });
 
     this.updateEntity(logLine.targetName, {
       id: logLine.targetId,
       name: logLine.targetName,
       currentHp: logLine.currentHp,
-      maxHp: logLine.maxHp
+      maxHp: logLine.maxHp,
     });
 
     const damageOwner = this.game.entities[logLine.name];
     const damageTarget = this.game.entities[logLine.targetName];
-
-    if (
-      !damageTarget.isPlayer &&
-      this.removeOverkillDamage &&
-      logLine.currentHp < 0
-    ) {
+    if (!damageOwner || !damageTarget) return;
+    if (!damageTarget.isPlayer && this.removeOverkillDamage && logLine.currentHp < 0) {
       logLine.damage = logLine.damage + logLine.currentHp;
     }
 
     if (logLine.skillId === 0 && logLine.skillEffectId !== 0) {
-        logLine.skillId = logLine.skillEffectId;
-        logLine.skillName = logLine.skillEffect;
+      logLine.skillId = logLine.skillEffectId;
+      logLine.skillName = logLine.skillEffect;
     }
 
     if (!(logLine.skillName in damageOwner.skills)) {
       damageOwner.skills[logLine.skillName] = {
         ...createEntitySkill(),
-        ...{ id: logLine.skillId, name: logLine.skillName }
+        ...{ id: logLine.skillId, name: logLine.skillName },
       };
     }
 
@@ -571,9 +562,7 @@ export class LogParser extends EventEmitter {
     // Remove 'sync' bleeds on G1 Valtan
     if (logLine.skillName === "Bleed" && hitFlag === HitFlag.HIT_FLAG_DAMAGE_SHARE) return;
 
-    const isCrit =
-      hitFlag === HitFlag.HIT_FLAG_CRITICAL ||
-      hitFlag === HitFlag.HIT_FLAG_DOT_CRITICAL;
+    const isCrit = hitFlag === HitFlag.HIT_FLAG_CRITICAL || hitFlag === HitFlag.HIT_FLAG_DOT_CRITICAL;
     const isBackAttack = hitOption === HitOption.HIT_OPTION_BACK_ATTACK;
     const isFrontAttack = hitOption === HitOption.HIT_OPTION_FRONTAL_ATTACK;
 
@@ -581,14 +570,9 @@ export class LogParser extends EventEmitter {
     const backAttackCount = isBackAttack ? 1 : 0;
     const frontAttackCount = isFrontAttack ? 1 : 0;
 
-    damageOwner.skills[logLine.skillName].totalDamage +=
-      logLine.damage;
-    if (
-      logLine.damage >
-      damageOwner.skills[logLine.skillName].maxDamage
-    )
-      damageOwner.skills[logLine.skillName].maxDamage =
-        logLine.damage;
+    damageOwner.skills[logLine.skillName]!.totalDamage += logLine.damage;
+    if (logLine.damage > damageOwner.skills[logLine.skillName]!.maxDamage)
+      damageOwner.skills[logLine.skillName]!.maxDamage = logLine.damage;
 
     damageOwner.damageDealt += logLine.damage;
     damageTarget.damageTaken += logLine.damage;
@@ -599,10 +583,10 @@ export class LogParser extends EventEmitter {
       damageOwner.hits.backAttack += backAttackCount;
       damageOwner.hits.frontAttack += frontAttackCount;
 
-      damageOwner.skills[logLine.skillName].hits.total += 1;
-      damageOwner.skills[logLine.skillName].hits.crit += critCount;
-      damageOwner.skills[logLine.skillName].hits.backAttack += backAttackCount;
-      damageOwner.skills[logLine.skillName].hits.frontAttack += frontAttackCount;
+      damageOwner.skills[logLine.skillName]!.hits.total += 1;
+      damageOwner.skills[logLine.skillName]!.hits.crit += critCount;
+      damageOwner.skills[logLine.skillName]!.hits.backAttack += backAttackCount;
+      damageOwner.skills[logLine.skillName]!.hits.frontAttack += frontAttackCount;
     }
 
     if (damageOwner.isPlayer) {
@@ -619,9 +603,9 @@ export class LogParser extends EventEmitter {
         isCrit,
         isBackAttack,
         isFrontAttack,
-      }
+      };
 
-      damageOwner.skills[logLine.skillName].breakdown.push(breakdown);
+      damageOwner.skills[logLine.skillName]!.breakdown.push(breakdown);
     }
 
     if (damageTarget.isPlayer) {
@@ -632,8 +616,7 @@ export class LogParser extends EventEmitter {
       );
     }
 
-    if (this.game.fightStartedOn === 0)
-      this.game.fightStartedOn = +logLine.timestamp;
+    if (this.game.fightStartedOn === 0) this.game.fightStartedOn = +logLine.timestamp;
     this.game.lastCombatPacket = +logLine.timestamp;
   }
 
@@ -644,7 +627,7 @@ export class LogParser extends EventEmitter {
     if (this.debugLines) {
       this.emit("log", {
         type: "debug",
-        message: `onHeal: ${logLine.id}, ${logLine.name}, ${logLine.healAmount}`
+        message: `onHeal: ${logLine.id}, ${logLine.name}, ${logLine.healAmount}`,
       });
     }
 
@@ -658,16 +641,16 @@ export class LogParser extends EventEmitter {
     if (!sourceName) return;
 
     this.updateEntity(sourceName, {
-      name: sourceName
+      name: sourceName,
     });
 
-    this.game.entities[sourceName].healingDone += logLine.healAmount;
+    this.game.entities[sourceName]!.healingDone += logLine.healAmount;
 
-    if (this.game.entities[sourceName].isPlayer) {
+    if (this.game.entities[sourceName]!.isPlayer) {
       this.game.damageStatistics.totalHealingDone += logLine.healAmount;
       this.game.damageStatistics.topHealingDone = Math.max(
         this.game.damageStatistics.topHealingDone,
-        this.game.entities[sourceName].healingDone
+        this.game.entities[sourceName]!.healingDone
       );
     }
   }
@@ -679,22 +662,22 @@ export class LogParser extends EventEmitter {
     if (this.debugLines) {
       this.emit("log", {
         type: "debug",
-        message: `onBuff: ${logLine.id}, ${logLine.name}, ${logLine.buffId}, ${logLine.buffName}, ${logLine.sourceId}, ${logLine.sourceName}, ${logLine.shieldAmount}`
+        message: `onBuff: ${logLine.id}, ${logLine.name}, ${logLine.buffId}, ${logLine.buffName}, ${logLine.sourceId}, ${logLine.sourceName}, ${logLine.shieldAmount}`,
       });
     }
 
     if (logLine.shieldAmount && logLine.isNew) {
       this.updateEntity(logLine.name, {
-        name: logLine.name
+        name: logLine.name,
       });
 
-      this.game.entities[logLine.name].shieldDone += logLine.shieldAmount;
+      this.game.entities[logLine.name]!.shieldDone += logLine.shieldAmount;
 
-      if (this.game.entities[logLine.name].isPlayer) {
+      if (this.game.entities[logLine.name]!.isPlayer) {
         this.game.damageStatistics.totalShieldDone += logLine.shieldAmount;
         this.game.damageStatistics.topShieldDone = Math.max(
           this.game.damageStatistics.topShieldDone,
-          this.game.entities[logLine.name].shieldDone
+          this.game.entities[logLine.name]!.shieldDone
         );
       }
     }
@@ -707,15 +690,15 @@ export class LogParser extends EventEmitter {
     if (this.debugLines) {
       this.emit("log", {
         type: "debug",
-        message: `onCounterattack: ${logLine.id}, ${logLine.name}`
+        message: `onCounterattack: ${logLine.id}, ${logLine.name}`,
       });
     }
 
     this.updateEntity(logLine.name, {
-      name: logLine.name
+      name: logLine.name,
     });
 
     // TODO: Add skill name from logger
-    this.game.entities[logLine.name].hits.counter += 1;
+    this.game.entities[logLine.name]!.hits.counter += 1;
   }
 }

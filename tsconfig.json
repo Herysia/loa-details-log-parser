@@ -1,33 +1,8 @@
 {
+    "extends": "@tsconfig/node18-strictest-esm/tsconfig.json",
     "compilerOptions": {
-        "target": "es6",
-        "module": "commonjs",
-        "declaration": true,
-        "strict": true,
-        "lib": [
-            "ES2022"
-        ],
-        "types": [
-            "node"
-        ],
-        "moduleResolution": "node",
-        "rootDir": ".",
-        "outDir": "dist",
-        "allowSyntheticDefaultImports": true,
-        "importHelpers": true,
-        "alwaysStrict": true,
-        "sourceMap": true,
-        "forceConsistentCasingInFileNames": true,
-        "noFallthroughCasesInSwitch": true,
-        "noImplicitReturns": true,
-        "noUnusedLocals": true,
-        "noUnusedParameters": true,
-        "noImplicitAny": false,
-        "noImplicitThis": false,
-        "strictNullChecks": false,
-        "esModuleInterop": true
+        "noUnusedLocals": false,
+        "noUnusedParameters": false
     },
-    "include": [
-        "src/**/*"
-    ]
+    "include": ["src/*"]
 }

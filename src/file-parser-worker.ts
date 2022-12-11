@@ -7,6 +7,16 @@ import path from "path";
 
 import customParseFormat from "dayjs/plugin/customParseFormat";
 dayjs.extend(customParseFormat);
+type Encounter = {
+  encounterId: string;
+  encounterFile: string;
+  duration: number;
+  mostDamageTakenEntity: {
+    name: string;
+    damageTaken: number;
+    isPlayer: boolean;
+  };
+};
 
 export default function fileParserWorker(
   filename: string,
@@ -23,10 +33,9 @@ export default function fileParserWorker(
     if (!contents) return callback(null, "empty log");
 
     const logParser = new LogParser(false);
-    if (splitOnPhaseTransition === true)
-      logParser.splitOnPhaseTransition = true;
+    if (splitOnPhaseTransition === true) logParser.splitOnPhaseTransition = true;
 
-    const lines = contents.split("\n").filter(x => x != null && x != "");
+    const lines = contents.split("\n").filter((x) => x != null && x != "");
     for (const line of lines) {
       logParser.parseLogLine(line);
     }
@@ -35,7 +44,7 @@ export default function fileParserWorker(
     const encounters = logParser.encounters;
 
     if (encounters.length > 0) {
-      const masterLog = { encounters: [] };
+      const masterLog: { encounters: Encounter[] } = { encounters: [] };
 
       for (const encounter of encounters) {
         const duration = encounter.lastCombatPacket - encounter.fightStartedOn;
@@ -45,7 +54,7 @@ export default function fileParserWorker(
         let mostDamageTakenEntity = {
           name: "",
           damageTaken: 0,
-          isPlayer: false
+          isPlayer: false,
         };
 
         for (const i of Object.values(encounter.entities)) {
@@ -53,14 +62,14 @@ export default function fileParserWorker(
             mostDamageTakenEntity = {
               name: i.name,
               damageTaken: i.damageTaken,
-              isPlayer: i.isPlayer
+              isPlayer: i.isPlayer,
             };
           }
         }
 
         const encounterDetails = {
           duration,
-          mostDamageTakenEntity
+          mostDamageTakenEntity,
         };
 
         const encounterId = uuidv4();
@@ -68,22 +77,19 @@ export default function fileParserWorker(
         masterLog.encounters.push({
           encounterId,
           encounterFile,
-          ...encounterDetails
+          ...encounterDetails,
         });
 
         fs.writeFileSync(
           path.join(parsedLogFolder, encounterFile),
           JSON.stringify({
             ...encounter,
-            ...encounterDetails
+            ...encounterDetails,
           })
         );
       }
 
-      fs.writeFileSync(
-        path.join(parsedLogFolder, jsonName),
-        JSON.stringify(masterLog)
-      );
+      fs.writeFileSync(path.join(parsedLogFolder, jsonName), JSON.stringify(masterLog));
 
       return callback(null, "log parsed");
     }
