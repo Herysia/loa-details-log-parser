@@ -19,7 +19,7 @@
   "module": "./dist/parser.mjs",
   "license": "MIT",
   "scripts": {
-    "build": "tsup src/*.ts --format cjs,esm --dts --minify --clean"
+    "build": "tsup src/*.ts --format cjs,esm --no-splitting --dts --minify --clean"
   },
   "devDependencies": {
     "@tsconfig/node18-strictest-esm": "^1.0.1",
@@ -32,5 +32,10 @@
     "dayjs": "^1.11.3",
     "lodash": "^4.17.21",
     "uuid": "^8.3.2"
+  },
+  "tsup": {
+    "footer": {
+      "js": "module.exports = module.exports.default;"
+    }
   }
 }
