@@ -18,7 +18,7 @@ type Encounter = {
   };
 };
 
-function fileParserWorker(
+export function fileParserWorker(
   filename: string,
   splitOnPhaseTransition: boolean,
   mainFolder: string,
@@ -99,5 +99,3 @@ function fileParserWorker(
     return callback(e, "log parser error");
   }
 }
-
-export default { fileParserWorker };
