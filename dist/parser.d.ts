@@ -99,7 +99,29 @@ declare class LogParser extends EventEmitter {
     splitEncounter(): void;
     broadcastStateChange(): void;
     parseLogLine(line: string): void;
-    updateEntity(entityName: string, values: {}): void;
+    updateEntity(entityName: string, values: Record<string, unknown>): {
+        lastUpdate: number;
+        id: string;
+        npcId: number;
+        name: string;
+        class: string;
+        classId: number;
+        isPlayer: boolean;
+        isDead: boolean;
+        deaths: number;
+        deathTime: number;
+        gearScore: number;
+        currentHp: number;
+        maxHp: number;
+        damageDealt: number;
+        healingDone: number;
+        shieldDone: number;
+        damageTaken: number;
+        skills: {
+            [name: string]: EntitySkills;
+        };
+        hits: Hits;
+    };
     onMessage(lineSplit: string[]): void;
     onInitEnv(): void;
     onPhaseTransition(lineSplit: string[]): void;
