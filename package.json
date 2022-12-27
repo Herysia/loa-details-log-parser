@@ -19,7 +19,8 @@
   "module": "./dist/parser.mjs",
   "license": "MIT",
   "scripts": {
-    "build": "tsup src/*.ts --format cjs,esm --dts --minify --clean"
+    "build": "tsup src/*.ts --format cjs,esm --dts --minify --clean",
+    "build:dev": "tsup src/*.ts --format cjs,esm --dts"
   },
   "devDependencies": {
     "@tsconfig/node18-strictest-esm": "^1.0.1",

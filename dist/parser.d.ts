@@ -14,6 +14,7 @@ interface Game {
     startedOn: number;
     lastCombatPacket: number;
     fightStartedOn: number;
+    localPlayer: string;
     entities: {
         [name: string]: Entity;
     };
@@ -93,10 +94,10 @@ declare class LogParser extends EventEmitter {
     encounters: Game[];
     healSources: HealSource[];
     constructor(isLive?: boolean);
-    resetState(): void;
+    resetState(newLocal?: string): void;
     softReset(): void;
     cancelReset(): void;
-    splitEncounter(): void;
+    splitEncounter(newLocal?: string, softReset?: boolean): void;
     broadcastStateChange(): void;
     parseLogLine(line: string): void;
     updateEntity(entityName: string, values: Record<string, unknown>): {
@@ -123,7 +124,7 @@ declare class LogParser extends EventEmitter {
         hits: Hits;
     };
     onMessage(lineSplit: string[]): void;
-    onInitEnv(): void;
+    onInitEnv(lineSplit: string[]): void;
     onPhaseTransition(lineSplit: string[]): void;
     onNewPc(lineSplit: string[]): void;
     onNewNpc(lineSplit: string[]): void;

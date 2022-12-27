@@ -19,6 +19,7 @@ export interface Game {
   startedOn: number;
   lastCombatPacket: number;
   fightStartedOn: number;
+  localPlayer: string;
   entities: { [name: string]: Entity };
   damageStatistics: DamageStatistics;
 }
@@ -173,7 +174,7 @@ export class LogParser extends EventEmitter {
     }
   }
 
-  resetState() {
+  resetState(newLocal = "") {
     if (this.debugLines)
       this.emit("log", {
         type: "debug",
@@ -182,12 +183,38 @@ export class LogParser extends EventEmitter {
 
     const clone = cloneDeep(this.game);
     const curTime = +new Date();
-
+    let entities: { [key: string]: Entity } = {};
+    //Keep local player if exist, and update id to new one (/!\ we'll have to track the next newpc for localplayer spawn)
+    if (this.game && newLocal !== "") {
+      const localPlayerEntity = this.game.entities[this.game.localPlayer];
+      if (localPlayerEntity) {
+        //Update existing
+        entities[this.game.localPlayer] = {
+          ...createEntity(),
+          id: newLocal,
+          name: localPlayerEntity.name,
+          class: localPlayerEntity.class,
+          classId: localPlayerEntity.classId,
+          isPlayer: localPlayerEntity.isPlayer,
+          gearScore: localPlayerEntity.gearScore,
+        };
+      } else {
+        //Create empty localplayer
+        this.game.localPlayer = "You";
+        entities[this.game.localPlayer] = {
+          ...createEntity(),
+          id: newLocal,
+          name: "You",
+          isPlayer: true,
+        };
+      }
+    }
     this.game = {
       startedOn: curTime,
       lastCombatPacket: curTime,
       fightStartedOn: 0,
-      entities: {},
+      localPlayer: this.game?.localPlayer ?? "", //We never reset localplayer outside of initenv or initpc
+      entities,
       damageStatistics: {
         totalDamageDealt: 0,
         topDamageDealt: 0,
@@ -227,14 +254,15 @@ export class LogParser extends EventEmitter {
     if (this.resetTimer) clearTimeout(this.resetTimer);
     this.resetTimer = null;
   }
-  splitEncounter() {
+  splitEncounter(newLocal = "", softReset = false) {
     const curState = cloneDeep(this.game);
     if (
       curState.fightStartedOn != 0 && // no combat packets
       (curState.damageStatistics.totalDamageDealt != 0 || curState.damageStatistics.totalDamageTaken) // no player damage dealt OR taken
     )
       this.encounters.push(curState);
-    this.resetState();
+    if (softReset) this.softReset();
+    else this.resetState(newLocal);
   }
 
   broadcastStateChange() {
@@ -263,7 +291,7 @@ export class LogParser extends EventEmitter {
           this.onMessage(lineSplit);
           break;
         case 1:
-          this.onInitEnv(/* lineSplit */);
+          this.onInitEnv(lineSplit);
           break;
         case 2:
           this.onPhaseTransition(lineSplit);
@@ -339,9 +367,8 @@ export class LogParser extends EventEmitter {
   }
 
   // logId = 1
-  onInitEnv(/* lineSplit: string[] */) {
-    //const logLine = new LogLines.LogInitEnv(lineSplit);
-
+  onInitEnv(lineSplit: string[]) {
+    const logLine = new LogLines.LogInitEnv(lineSplit);
     if (this.debugLines) {
       this.emit("log", {
         type: "debug",
@@ -362,7 +389,7 @@ export class LogParser extends EventEmitter {
         this.emit("message", "new-zone");
       }
     } else {
-      this.splitEncounter();
+      this.splitEncounter(logLine.playerId);
       this.emit("message", "new-zone");
     }
   }
@@ -388,7 +415,7 @@ export class LogParser extends EventEmitter {
     }
 
     if (!this.isLive && this.splitOnPhaseTransition) {
-      this.splitEncounter();
+      this.splitEncounter("", true);
     }
   }
 
@@ -402,7 +429,14 @@ export class LogParser extends EventEmitter {
         message: `onNewPc: ${logLine.id}, ${logLine.name}, ${logLine.classId}, ${logLine.class}, ${logLine.gearScore}, ${logLine.currentHp}, ${logLine.maxHp}`,
       });
     }
-
+    if (this.game && this.game.localPlayer !== "") {
+      const localPlayerEntity = this.game.entities[this.game.localPlayer];
+      if (localPlayerEntity && localPlayerEntity.id === logLine.id) {
+        //We tracked new localPlayer, delete old
+        delete this.game.entities[this.game.localPlayer];
+        this.game.localPlayer = logLine.name;
+      }
+    }
     this.updateEntity(logLine.name, {
       id: logLine.id,
       name: logLine.name,
@@ -527,7 +561,7 @@ export class LogParser extends EventEmitter {
     if (
       this.phaseTransitionResetRequest &&
       this.phaseTransitionResetRequestTime > 0 &&
-      this.phaseTransitionResetRequestTime < +new Date() - 1500
+      this.phaseTransitionResetRequestTime < +new Date() - 13500
     ) {
       this.softReset();
       this.phaseTransitionResetRequest = false;
