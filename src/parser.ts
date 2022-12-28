@@ -173,22 +173,13 @@ export class LogParser extends EventEmitter {
       setInterval(this.broadcastStateChange.bind(this), 100);
     }
   }
-
-  resetState(newLocal = "") {
-    if (this.debugLines)
-      this.emit("log", {
-        type: "debug",
-        message: "Resetting state",
-      });
-
-    const clone = cloneDeep(this.game);
-    const curTime = +new Date();
-    let entities: { [key: string]: Entity } = {};
+  updateOrCreateLocalPlayer(entities: { [key: string]: Entity }, newLocal: string) {
     //Keep local player if exist, and update id to new one (/!\ we'll have to track the next newpc for localplayer spawn)
     if (this.game && newLocal !== "") {
       const localPlayerEntity = this.game.entities[this.game.localPlayer];
       if (localPlayerEntity) {
         //Update existing
+
         entities[this.game.localPlayer] = {
           ...createEntity(),
           id: newLocal,
@@ -209,6 +200,18 @@ export class LogParser extends EventEmitter {
         };
       }
     }
+  }
+  resetState(newLocal = "") {
+    if (this.debugLines)
+      this.emit("log", {
+        type: "debug",
+        message: "Resetting state",
+      });
+
+    const clone = cloneDeep(this.game);
+    const curTime = +new Date();
+    let entities: { [key: string]: Entity } = {};
+    this.updateOrCreateLocalPlayer(entities, newLocal);
     this.game = {
       startedOn: curTime,
       lastCombatPacket: curTime,
@@ -235,9 +238,6 @@ export class LogParser extends EventEmitter {
     const entitiesCopy = cloneDeep(this.game.entities);
     this.resetState();
     for (const entity of Object.values(entitiesCopy)) {
-      // don't keep entity if it hasn't been updated in 10 minutes
-      if (+new Date() - entity.lastUpdate > 10 * 60 * 1000) continue;
-
       this.updateEntity(entity.name, {
         name: entity.name,
         npcId: entity.npcId,
@@ -375,8 +375,16 @@ export class LogParser extends EventEmitter {
         message: "onInitEnv",
       });
     }
+    //Update localplayer
+    this.updateOrCreateLocalPlayer(this.game.entities, logLine.playerId);
 
     if (this.isLive) {
+      //Always cleanup entities on zone change, but keep players in case we don't want to reset
+
+      for (const key in this.game.entities) {
+        if (!this.game.entities[key]?.isPlayer) delete this.game.entities[key];
+      }
+
       if (this.dontResetOnZoneChange === false && this.resetTimer == null) {
         if (this.debugLines) {
           this.emit("log", {
@@ -385,7 +393,14 @@ export class LogParser extends EventEmitter {
           });
         }
 
-        this.resetTimer = setTimeout(this.softReset.bind(this), 6000);
+        //Then
+        this.resetTimer = setTimeout(() => {
+          //Wipe all entities except localplayer
+          for (const key in this.game.entities) {
+            if (this.game.entities[key]?.name !== this.game.localPlayer) delete this.game.entities[key];
+          }
+          this.softReset();
+        }, 6000);
         this.emit("message", "new-zone");
       }
     } else {
@@ -561,7 +576,7 @@ export class LogParser extends EventEmitter {
     if (
       this.phaseTransitionResetRequest &&
       this.phaseTransitionResetRequestTime > 0 &&
-      this.phaseTransitionResetRequestTime < +new Date() - 13500
+      this.phaseTransitionResetRequestTime < +new Date() - 8000
     ) {
       this.softReset();
       this.phaseTransitionResetRequest = false;

@@ -94,6 +94,9 @@ declare class LogParser extends EventEmitter {
     encounters: Game[];
     healSources: HealSource[];
     constructor(isLive?: boolean);
+    updateOrCreateLocalPlayer(entities: {
+        [key: string]: Entity;
+    }, newLocal: string): void;
     resetState(newLocal?: string): void;
     softReset(): void;
     cancelReset(): void;
