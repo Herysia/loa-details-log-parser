@@ -173,35 +173,32 @@ export class LogParser extends EventEmitter {
       setInterval(this.broadcastStateChange.bind(this), 100);
     }
   }
-  updateOrCreateLocalPlayer(entities: { [key: string]: Entity }, newLocal: string) {
+  updateOrCreateLocalPlayer(newLocal: string) {
     //Keep local player if exist, and update id to new one (/!\ we'll have to track the next newpc for localplayer spawn)
     if (this.game && newLocal !== "") {
       const localPlayerEntity = this.game.entities[this.game.localPlayer];
       if (localPlayerEntity) {
         //Update existing
-
-        entities[this.game.localPlayer] = {
-          ...createEntity(),
+        this.updateEntity(this.game.localPlayer, {
           id: newLocal,
           name: localPlayerEntity.name,
           class: localPlayerEntity.class,
           classId: localPlayerEntity.classId,
-          isPlayer: localPlayerEntity.isPlayer,
+          isPlayer: true,
           gearScore: localPlayerEntity.gearScore,
-        };
+        });
       } else {
         //Create empty localplayer
         this.game.localPlayer = "You";
-        entities[this.game.localPlayer] = {
-          ...createEntity(),
+        this.updateEntity(this.game.localPlayer, {
           id: newLocal,
           name: "You",
           isPlayer: true,
-        };
+        });
       }
     }
   }
-  resetState(newLocal = "") {
+  resetState() {
     if (this.debugLines)
       this.emit("log", {
         type: "debug",
@@ -211,7 +208,6 @@ export class LogParser extends EventEmitter {
     const clone = cloneDeep(this.game);
     const curTime = +new Date();
     let entities: { [key: string]: Entity } = {};
-    this.updateOrCreateLocalPlayer(entities, newLocal);
     this.game = {
       startedOn: curTime,
       lastCombatPacket: curTime,
@@ -230,6 +226,18 @@ export class LogParser extends EventEmitter {
       },
     };
 
+    if (clone && clone.localPlayer !== "") {
+      const localPlayerEntity = clone.entities[this.game.localPlayer];
+      if (localPlayerEntity)
+        this.updateEntity(localPlayerEntity.name, {
+          id: localPlayerEntity.id,
+          name: localPlayerEntity.name,
+          class: localPlayerEntity.class,
+          classId: localPlayerEntity.classId,
+          isPlayer: true,
+          gearScore: localPlayerEntity.gearScore,
+        });
+    }
     this.healSources = [];
     this.emit("reset-state", clone);
   }
@@ -254,7 +262,7 @@ export class LogParser extends EventEmitter {
     if (this.resetTimer) clearTimeout(this.resetTimer);
     this.resetTimer = null;
   }
-  splitEncounter(newLocal = "", softReset = false) {
+  splitEncounter(softReset = false) {
     const curState = cloneDeep(this.game);
     if (
       curState.fightStartedOn != 0 && // no combat packets
@@ -262,7 +270,7 @@ export class LogParser extends EventEmitter {
     )
       this.encounters.push(curState);
     if (softReset) this.softReset();
-    else this.resetState(newLocal);
+    else this.resetState();
   }
 
   broadcastStateChange() {
@@ -376,13 +384,13 @@ export class LogParser extends EventEmitter {
       });
     }
     //Update localplayer
-    this.updateOrCreateLocalPlayer(this.game.entities, logLine.playerId);
+    this.updateOrCreateLocalPlayer(logLine.playerId);
 
     if (this.isLive) {
-      //Always cleanup entities on zone change, but keep players in case we don't want to reset
-
+      //Cleanup entities that are not displayed (we keep others in case user want to keep his previous encounter)
       for (const key in this.game.entities) {
-        if (!this.game.entities[key]?.isPlayer) delete this.game.entities[key];
+        if (this.game.entities[key]?.name !== this.game.localPlayer && this.game.entities[key]?.hits.total === 0)
+          delete this.game.entities[key];
       }
 
       if (this.dontResetOnZoneChange === false && this.resetTimer == null) {
@@ -395,16 +403,12 @@ export class LogParser extends EventEmitter {
 
         //Then
         this.resetTimer = setTimeout(() => {
-          //Wipe all entities except localplayer
-          for (const key in this.game.entities) {
-            if (this.game.entities[key]?.name !== this.game.localPlayer) delete this.game.entities[key];
-          }
           this.softReset();
         }, 6000);
         this.emit("message", "new-zone");
       }
     } else {
-      this.splitEncounter(logLine.playerId);
+      this.splitEncounter();
       this.emit("message", "new-zone");
     }
   }
@@ -430,7 +434,7 @@ export class LogParser extends EventEmitter {
     }
 
     if (!this.isLive && this.splitOnPhaseTransition) {
-      this.splitEncounter("", true);
+      this.splitEncounter(true);
     }
   }
 
@@ -447,8 +451,10 @@ export class LogParser extends EventEmitter {
     if (this.game && this.game.localPlayer !== "") {
       const localPlayerEntity = this.game.entities[this.game.localPlayer];
       if (localPlayerEntity && localPlayerEntity.id === logLine.id) {
-        //We tracked new localPlayer, delete old
-        delete this.game.entities[this.game.localPlayer];
+        //We tracked new localPlayer
+        //We don't delete old one, in case user want to keep log active,
+        //but it's not local player so it'll be delete on zone change
+        //delete this.game.entities[this.game.localPlayer];
         this.game.localPlayer = logLine.name;
       }
     }
