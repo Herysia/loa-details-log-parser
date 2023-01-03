@@ -50,6 +50,8 @@ export interface Entity {
   currentHp: number;
   maxHp: number;
   damageDealt: number;
+  damageDealtDebuffedBySupport: number;
+  damageDealtBuffedBySupport: number;
   healingDone: number;
   shieldDone: number;
   damageTaken: number;
@@ -64,12 +66,16 @@ export interface Breakdown {
   isCrit: boolean;
   isBackAttack: boolean;
   isFrontAttack: boolean;
+  isDebuffedBySupport: boolean;
+  isBuffedBySupport: boolean;
 }
 
 export interface EntitySkills {
   id: number;
   name: string;
   totalDamage: number;
+  damageDebuffedBySupport: number;
+  damageBuffedBySupport: number;
   maxDamage: number;
   hits: Hits;
   breakdown: Breakdown[];
@@ -80,6 +86,8 @@ function createEntitySkill(): EntitySkills {
     id: 0,
     name: "",
     totalDamage: 0,
+    damageDebuffedBySupport: 0,
+    damageBuffedBySupport: 0,
     maxDamage: 0,
     hits: {
       casts: 0,
@@ -88,6 +96,8 @@ function createEntitySkill(): EntitySkills {
       backAttack: 0,
       frontAttack: 0,
       counter: 0,
+      hitsDebuffedBySupport: 0,
+      hitsBuffedBySupport: 0,
     },
     breakdown: [],
   };
@@ -101,6 +111,8 @@ interface Hits {
   backAttack: number;
   frontAttack: number;
   counter: number;
+  hitsDebuffedBySupport: number;
+  hitsBuffedBySupport: number;
 }
 function createEntity(): Entity {
   const newEntity: Entity = {
@@ -118,6 +130,8 @@ function createEntity(): Entity {
     currentHp: 0,
     maxHp: 0,
     damageDealt: 0,
+    damageDealtDebuffedBySupport: 0,
+    damageDealtBuffedBySupport: 0,
     healingDone: 0,
     shieldDone: 0,
     damageTaken: 0,
@@ -129,6 +143,8 @@ function createEntity(): Entity {
       backAttack: 0,
       frontAttack: 0,
       counter: 0,
+      hitsDebuffedBySupport: 0,
+      hitsBuffedBySupport: 0,
     },
   };
   return newEntity;
@@ -637,23 +653,33 @@ export class LogParser extends EventEmitter {
     const critCount = isCrit ? 1 : 0;
     const backAttackCount = isBackAttack ? 1 : 0;
     const frontAttackCount = isFrontAttack ? 1 : 0;
+    const debuffAttackCount = logLine.targetIsDebuffedBySupport ? 1 : 0;
+    const buffAttackCount = logLine.sourceIsBuffedBySupport ? 1 : 0;
 
     skill.totalDamage += logLine.damage;
+    skill.damageBuffedBySupport += logLine.sourceIsBuffedBySupport ? logLine.damage : 0;
+    skill.damageDebuffedBySupport  += logLine.targetIsDebuffedBySupport ? logLine.damage : 0;
     if (logLine.damage > skill.maxDamage) skill.maxDamage = logLine.damage;
 
     damageOwner.damageDealt += logLine.damage;
     damageTarget.damageTaken += logLine.damage;
+    damageOwner.damageDealtBuffedBySupport += logLine.sourceIsBuffedBySupport ? logLine.damage : 0;
+    damageOwner.damageDealtDebuffedBySupport += logLine.targetIsDebuffedBySupport ? logLine.damage : 0;
 
     if (logLine.skillName !== "Bleed") {
       damageOwner.hits.total += 1;
       damageOwner.hits.crit += critCount;
       damageOwner.hits.backAttack += backAttackCount;
       damageOwner.hits.frontAttack += frontAttackCount;
+      damageOwner.hits.hitsBuffedBySupport += buffAttackCount;
+      damageOwner.hits.hitsDebuffedBySupport += debuffAttackCount;
 
       skill.hits.total += 1;
       skill.hits.crit += critCount;
       skill.hits.backAttack += backAttackCount;
       skill.hits.frontAttack += frontAttackCount;
+      skill.hits.hitsBuffedBySupport += buffAttackCount;
+      skill.hits.hitsDebuffedBySupport += debuffAttackCount;
     }
 
     if (damageOwner.isPlayer) {
@@ -670,6 +696,8 @@ export class LogParser extends EventEmitter {
         isCrit,
         isBackAttack,
         isFrontAttack,
+        isBuffedBySupport: logLine.sourceIsBuffedBySupport,
+        isDebuffedBySupport: logLine.targetIsDebuffedBySupport,
       };
 
       skill.breakdown.push(breakdown);

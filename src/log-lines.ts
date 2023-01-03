@@ -153,6 +153,8 @@ export class LogDamage extends LogLine {
   damageModifier: number;
   currentHp: number;
   maxHp: number;
+  sourceIsBuffedBySupport: boolean;
+  targetIsDebuffedBySupport: boolean;
 
   constructor(lineSplit: string[]) {
     super(lineSplit);
@@ -169,6 +171,8 @@ export class LogDamage extends LogLine {
     this.damageModifier = tryParseInt(lineSplit[11]!, 0, 16);
     this.currentHp = tryParseInt(lineSplit[12]!);
     this.maxHp = tryParseInt(lineSplit[13]!);
+    this.sourceIsBuffedBySupport = lineSplit[14] == "true";
+    this.targetIsDebuffedBySupport = lineSplit[15] == "true";
   }
 }
 
