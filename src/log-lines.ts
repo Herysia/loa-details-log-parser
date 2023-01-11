@@ -1,3 +1,4 @@
+import { last } from "lodash";
 import { tryParseInt } from "./util";
 
 class LogLine {
@@ -153,8 +154,8 @@ export class LogDamage extends LogLine {
   damageModifier: number;
   currentHp: number;
   maxHp: number;
-  sourceIsBuffedBySupport: boolean;
-  targetIsDebuffedBySupport: boolean;
+  statusEffectsOnTarget: (number|string)[][];
+  statusEffectsOnSource: (number|string)[][];
 
   constructor(lineSplit: string[]) {
     super(lineSplit);
@@ -171,8 +172,29 @@ export class LogDamage extends LogLine {
     this.damageModifier = tryParseInt(lineSplit[11]!, 0, 16);
     this.currentHp = tryParseInt(lineSplit[12]!);
     this.maxHp = tryParseInt(lineSplit[13]!);
-    this.sourceIsBuffedBySupport = lineSplit[14] == "true";
-    this.targetIsDebuffedBySupport = lineSplit[15] == "true";
+    this.statusEffectsOnTarget = [];
+    var isEntityId:boolean = false;
+    var lastStatusEffectId:number = 0;
+    for(var e of lineSplit[14]!.split(",")) {
+      if (isEntityId) {
+        this.statusEffectsOnTarget.push([lastStatusEffectId, e])
+        isEntityId = false;
+      } else {
+        lastStatusEffectId = tryParseInt(e);
+        isEntityId = true;
+      }
+    }
+    this.statusEffectsOnSource = []
+    isEntityId = false;
+    for(var e of lineSplit[14]!.split(",")) {
+      if (isEntityId) {
+        this.statusEffectsOnSource.push([lastStatusEffectId, e])
+        isEntityId = false;
+      } else {
+        lastStatusEffectId = tryParseInt(e);
+        isEntityId = true;
+      }
+    }
   }
 }
 
