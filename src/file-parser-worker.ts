@@ -85,7 +85,7 @@ export function fileParserWorker(
           JSON.stringify({
             ...encounter,
             ...encounterDetails,
-          })
+          }, replacer)
         );
       }
 
@@ -97,5 +97,21 @@ export function fileParserWorker(
     return callback(null, "no encounters found");
   } catch (e) {
     return callback(e, "log parser error");
+  }
+
+  function replacer(_key: any, value:any) {
+    if(value instanceof Map) {
+      return {
+        dataType: 'Map',
+        value: Array.from(value.entries()),
+      };
+    } else if(value instanceof Set){
+      return {
+        dataType: 'Set',
+        value: Array.from(value.values()),
+      };
+    } else {
+      return value;
+    }
   }
 }

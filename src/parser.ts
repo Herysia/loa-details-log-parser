@@ -3,7 +3,7 @@ import { EventEmitter } from "events";
 
 import * as LogLines from "./log-lines";
 import { tryParseInt } from "./util";
-import { healingSkills, HitFlag, HitOption } from "./constants";
+import { healingSkills, HitFlag, HitOption, playerBuffIds, playerBuffMap, playerDebuffIds, supportAttackBuffIds, supportSynergyIds } from "./constants";
 
 export interface DamageStatistics {
   totalDamageDealt: number;
@@ -14,7 +14,10 @@ export interface DamageStatistics {
   topHealingDone: number;
   totalShieldDone: number;
   topShieldDone: number;
+  debuffs: Set<number>;
+  buffs: Set<number>;
 }
+
 export interface Game {
   startedOn: number;
   lastCombatPacket: number;
@@ -57,6 +60,8 @@ export interface Entity {
   damageTaken: number;
   skills: { [name: string]: EntitySkills };
   hits: Hits;
+  damageDealtDebuffedBy: Map<number, number>;
+  damageDealtBuffedBy: Map<number, number>;
 }
 
 export interface Breakdown {
@@ -66,8 +71,10 @@ export interface Breakdown {
   isCrit: boolean;
   isBackAttack: boolean;
   isFrontAttack: boolean;
-  isDebuffedBySupport: boolean;
   isBuffedBySupport: boolean;
+  isDebuffedBySupport: boolean;
+  debuffedBy: number[];
+  buffedBy: number[];
 }
 
 export interface EntitySkills {
@@ -79,6 +86,8 @@ export interface EntitySkills {
   maxDamage: number;
   hits: Hits;
   breakdown: Breakdown[];
+  damageDebuffedBy: Map<number, number>;
+  damageBuffedBy: Map<number, number>;
 }
 
 function createEntitySkill(): EntitySkills {
@@ -98,8 +107,12 @@ function createEntitySkill(): EntitySkills {
       counter: 0,
       hitsDebuffedBySupport: 0,
       hitsBuffedBySupport: 0,
+      hitsBuffedBy: new Map(),
+      hitsDebuffedBy: new Map(),
     },
     breakdown: [],
+    damageDebuffedBy: new Map(),
+    damageBuffedBy: new Map(),
   };
   return newEntitySkill;
 }
@@ -113,6 +126,8 @@ interface Hits {
   counter: number;
   hitsDebuffedBySupport: number;
   hitsBuffedBySupport: number;
+  hitsBuffedBy: Map<number, number>,
+  hitsDebuffedBy: Map<number, number>,
 }
 function createEntity(): Entity {
   const newEntity: Entity = {
@@ -145,12 +160,17 @@ function createEntity(): Entity {
       counter: 0,
       hitsDebuffedBySupport: 0,
       hitsBuffedBySupport: 0,
+      hitsBuffedBy: new Map(),
+      hitsDebuffedBy: new Map(),
     },
+    damageDealtDebuffedBy: new Map(),
+    damageDealtBuffedBy: new Map(),
   };
   return newEntity;
 }
 
 export class LogParser extends EventEmitter {
+
   resetTimer: ReturnType<typeof setTimeout> | null;
 
   debugLines: boolean;
@@ -239,6 +259,8 @@ export class LogParser extends EventEmitter {
         topHealingDone: 0,
         totalShieldDone: 0,
         topShieldDone: 0,
+        debuffs: new Set(),
+        buffs: new Set(),
       },
     };
 
@@ -653,18 +675,33 @@ export class LogParser extends EventEmitter {
     const critCount = isCrit ? 1 : 0;
     const backAttackCount = isBackAttack ? 1 : 0;
     const frontAttackCount = isFrontAttack ? 1 : 0;
-    const debuffAttackCount = logLine.targetIsDebuffedBySupport ? 1 : 0;
-    const buffAttackCount = logLine.sourceIsBuffedBySupport ? 1 : 0;
+    var isBuffedBySupport = logLine.statusEffectsOnSource.filter((value, _index, _array) => supportAttackBuffIds.has(value[0] as number)).length > 0;
+    var isDebuffedBySupport = logLine.statusEffectsOnTarget.filter((value, _i, _a) => supportSynergyIds.has(value[0] as number)).length > 0;
+    const debuffAttackCount = isDebuffedBySupport ? 1 : 0;
+    const buffAttackCount = isBuffedBySupport ? 1 : 0;
 
     skill.totalDamage += logLine.damage;
-    skill.damageBuffedBySupport += logLine.sourceIsBuffedBySupport ? logLine.damage : 0;
-    skill.damageDebuffedBySupport  += logLine.targetIsDebuffedBySupport ? logLine.damage : 0;
+    skill.damageBuffedBySupport += isBuffedBySupport ? logLine.damage : 0;
+    skill.damageDebuffedBySupport  += isDebuffedBySupport ? logLine.damage : 0;
     if (logLine.damage > skill.maxDamage) skill.maxDamage = logLine.damage;
+
+    logLine.statusEffectsOnSource.forEach((v, _i, _a) => {
+      const oldval = skill!.damageBuffedBy.get(v[0] as number) ?? 0;
+      skill!.damageBuffedBy.set(v[0] as number, oldval+logLine.damage);
+      const oldOwnerDamage = damageOwner.damageDealtBuffedBy.get(v[0] as number) ?? 0;
+      damageOwner.damageDealtBuffedBy.set(v[0] as number, oldOwnerDamage+logLine.damage);
+    });
+    logLine.statusEffectsOnTarget.forEach((v, _i, _a) => {
+      const oldSkillDmg = skill!.damageDebuffedBy.get(v[0] as number) ?? 0;
+      skill!.damageDebuffedBy.set(v[0] as number, oldSkillDmg+logLine.damage);
+      const oldOwnerDamage = damageOwner.damageDealtDebuffedBy.get(v[0] as number) ?? 0;
+      damageOwner.damageDealtDebuffedBy.set(v[0] as number, oldOwnerDamage+logLine.damage);
+    });
 
     damageOwner.damageDealt += logLine.damage;
     damageTarget.damageTaken += logLine.damage;
-    damageOwner.damageDealtBuffedBySupport += logLine.sourceIsBuffedBySupport ? logLine.damage : 0;
-    damageOwner.damageDealtDebuffedBySupport += logLine.targetIsDebuffedBySupport ? logLine.damage : 0;
+    damageOwner.damageDealtBuffedBySupport += isBuffedBySupport ? logLine.damage : 0;
+    damageOwner.damageDealtDebuffedBySupport += isDebuffedBySupport ? logLine.damage : 0;
 
     if (logLine.skillName !== "Bleed") {
       damageOwner.hits.total += 1;
@@ -673,6 +710,18 @@ export class LogParser extends EventEmitter {
       damageOwner.hits.frontAttack += frontAttackCount;
       damageOwner.hits.hitsBuffedBySupport += buffAttackCount;
       damageOwner.hits.hitsDebuffedBySupport += debuffAttackCount;
+      logLine.statusEffectsOnSource.forEach((v, _i, _a) => {
+        const oldHitAmountTotal = damageOwner.hits.hitsBuffedBy.get(v[0] as number) ?? 0;
+        damageOwner.hits.hitsBuffedBy.set(v[0] as number, oldHitAmountTotal + 1);
+        const oldHitAmountSkill = skill!.hits.hitsBuffedBy.get(v[0] as number) ?? 0;
+        skill!.hits.hitsBuffedBy.set(v[0] as number, oldHitAmountSkill + 1);
+      });
+      logLine.statusEffectsOnTarget.forEach((v, _i, _a) => {
+        const oldHitAmountTotal = damageOwner.hits.hitsDebuffedBy.get(v[0] as number) ?? 0;
+        damageOwner.hits.hitsDebuffedBy.set(v[0] as number, oldHitAmountTotal + 1);
+        const oldHitAmountSkill = skill!.hits.hitsDebuffedBy.get(v[0] as number) ?? 0;
+        skill!.hits.hitsDebuffedBy.set(v[0] as number, oldHitAmountSkill + 1);
+      });
 
       skill.hits.total += 1;
       skill.hits.crit += critCount;
@@ -688,7 +737,12 @@ export class LogParser extends EventEmitter {
         this.game.damageStatistics.topDamageDealt,
         damageOwner.damageDealt
       );
-
+      logLine.statusEffectsOnSource.forEach((v, _i, _a) => {
+        const skillId = playerBuffMap.get(v[0] as number) ?? v[0] as number;
+        if(!(skillId >= 20000  && skillId <= 25520) && playerBuffIds.has(skillId))
+          this.game.damageStatistics.buffs.add(skillId)
+      });
+      logLine.statusEffectsOnTarget.forEach((v, _i, _a) => { const skillId = v[0] as number; if(playerDebuffIds.has(skillId)) this.game.damageStatistics.debuffs.add(skillId) });
       const breakdown: Breakdown = {
         timestamp: +logLine.timestamp,
         damage: logLine.damage,
@@ -696,8 +750,10 @@ export class LogParser extends EventEmitter {
         isCrit,
         isBackAttack,
         isFrontAttack,
-        isBuffedBySupport: logLine.sourceIsBuffedBySupport,
-        isDebuffedBySupport: logLine.targetIsDebuffedBySupport,
+        isBuffedBySupport: isBuffedBySupport,
+        isDebuffedBySupport: isDebuffedBySupport,
+        buffedBy: logLine.statusEffectsOnSource.map((v, _i, _a)=>(v[0] as number)),
+        debuffedBy: logLine.statusEffectsOnTarget.map((v, _i, _a)=>(v[0] as number)),
       };
 
       skill.breakdown.push(breakdown);

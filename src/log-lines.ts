@@ -173,26 +173,28 @@ export class LogDamage extends LogLine {
     this.currentHp = tryParseInt(lineSplit[12]!);
     this.maxHp = tryParseInt(lineSplit[13]!);
     this.statusEffectsOnTarget = [];
-    var isEntityId:boolean = false;
-    var lastStatusEffectId:number = 0;
-    for(var e of lineSplit[14]!.split(",")) {
-      if (isEntityId) {
-        this.statusEffectsOnTarget.push([lastStatusEffectId, e])
-        isEntityId = false;
-      } else {
-        lastStatusEffectId = tryParseInt(e);
-        isEntityId = true;
-      }
-    }
     this.statusEffectsOnSource = []
-    isEntityId = false;
-    for(var e of lineSplit[14]!.split(",")) {
-      if (isEntityId) {
-        this.statusEffectsOnSource.push([lastStatusEffectId, e])
-        isEntityId = false;
-      } else {
-        lastStatusEffectId = tryParseInt(e);
-        isEntityId = true;
+    if (lineSplit.length >= 17) {
+      let isEntityId:boolean = false;
+      let lastStatusEffectId:number = 0;
+      for(var e of lineSplit[14]!.split(",")) {
+        if (isEntityId) {
+          this.statusEffectsOnTarget.push([lastStatusEffectId, e])
+          isEntityId = false;
+        } else {
+          lastStatusEffectId = tryParseInt(e);
+          isEntityId = true;
+        }
+      }
+      isEntityId = false;
+      for(var e of lineSplit[15]!.split(",")) {
+        if (isEntityId) {
+          this.statusEffectsOnSource.push([lastStatusEffectId, e])
+          isEntityId = false;
+        } else {
+          lastStatusEffectId = tryParseInt(e);
+          isEntityId = true;
+        }
       }
     }
   }
