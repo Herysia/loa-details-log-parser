@@ -672,6 +672,10 @@ export class LogParser extends EventEmitter {
     const isBackAttack = hitOption === HitOption.HIT_OPTION_BACK_ATTACK;
     const isFrontAttack = hitOption === HitOption.HIT_OPTION_FRONTAL_ATTACK;
 
+    // map status effects
+    const mappedSeOnSource: Set<number> = new Set();
+    logLine.statusEffectsOnSource.forEach((v, _i, _a) => {const buffid = v[0] as number; mappedSeOnSource.add(playerBuffMap.get(buffid) ?? buffid)});
+
     const critCount = isCrit ? 1 : 0;
     const backAttackCount = isBackAttack ? 1 : 0;
     const frontAttackCount = isFrontAttack ? 1 : 0;
@@ -685,11 +689,11 @@ export class LogParser extends EventEmitter {
     skill.damageDebuffedBySupport  += isDebuffedBySupport ? logLine.damage : 0;
     if (logLine.damage > skill.maxDamage) skill.maxDamage = logLine.damage;
 
-    logLine.statusEffectsOnSource.forEach((v, _i, _a) => {
-      const oldval = skill!.damageBuffedBy.get(v[0] as number) ?? 0;
-      skill!.damageBuffedBy.set(v[0] as number, oldval+logLine.damage);
-      const oldOwnerDamage = damageOwner.damageDealtBuffedBy.get(v[0] as number) ?? 0;
-      damageOwner.damageDealtBuffedBy.set(v[0] as number, oldOwnerDamage+logLine.damage);
+    mappedSeOnSource.forEach((v, _i, _a) => {
+      const oldval = skill!.damageBuffedBy.get(v) ?? 0;
+      skill!.damageBuffedBy.set(v, oldval+logLine.damage);
+      const oldOwnerDamage = damageOwner.damageDealtBuffedBy.get(v) ?? 0;
+      damageOwner.damageDealtBuffedBy.set(v, oldOwnerDamage+logLine.damage);
     });
     logLine.statusEffectsOnTarget.forEach((v, _i, _a) => {
       const oldSkillDmg = skill!.damageDebuffedBy.get(v[0] as number) ?? 0;
@@ -710,11 +714,11 @@ export class LogParser extends EventEmitter {
       damageOwner.hits.frontAttack += frontAttackCount;
       damageOwner.hits.hitsBuffedBySupport += buffAttackCount;
       damageOwner.hits.hitsDebuffedBySupport += debuffAttackCount;
-      logLine.statusEffectsOnSource.forEach((v, _i, _a) => {
-        const oldHitAmountTotal = damageOwner.hits.hitsBuffedBy.get(v[0] as number) ?? 0;
-        damageOwner.hits.hitsBuffedBy.set(v[0] as number, oldHitAmountTotal + 1);
-        const oldHitAmountSkill = skill!.hits.hitsBuffedBy.get(v[0] as number) ?? 0;
-        skill!.hits.hitsBuffedBy.set(v[0] as number, oldHitAmountSkill + 1);
+      mappedSeOnSource.forEach((v, _i, _a) => {
+        const oldHitAmountTotal = damageOwner.hits.hitsBuffedBy.get(v) ?? 0;
+        damageOwner.hits.hitsBuffedBy.set(v, oldHitAmountTotal + 1);
+        const oldHitAmountSkill = skill!.hits.hitsBuffedBy.get(v) ?? 0;
+        skill!.hits.hitsBuffedBy.set(v, oldHitAmountSkill + 1);
       });
       logLine.statusEffectsOnTarget.forEach((v, _i, _a) => {
         const oldHitAmountTotal = damageOwner.hits.hitsDebuffedBy.get(v[0] as number) ?? 0;
@@ -737,9 +741,8 @@ export class LogParser extends EventEmitter {
         this.game.damageStatistics.topDamageDealt,
         damageOwner.damageDealt
       );
-      logLine.statusEffectsOnSource.forEach((v, _i, _a) => {
-        const skillId = playerBuffMap.get(v[0] as number) ?? v[0] as number;
-        if(!(skillId >= 20000  && skillId <= 25520) && playerBuffIds.has(skillId))
+      mappedSeOnSource.forEach((skillId, _i, _a) => {
+        if(playerBuffIds.has(skillId))
           this.game.damageStatistics.buffs.add(skillId)
       });
       logLine.statusEffectsOnTarget.forEach((v, _i, _a) => { const skillId = v[0] as number; if(playerDebuffIds.has(skillId)) this.game.damageStatistics.debuffs.add(skillId) });
@@ -752,7 +755,7 @@ export class LogParser extends EventEmitter {
         isFrontAttack,
         isBuffedBySupport: isBuffedBySupport,
         isDebuffedBySupport: isDebuffedBySupport,
-        buffedBy: logLine.statusEffectsOnSource.map((v, _i, _a)=>(v[0] as number)),
+        buffedBy: [...mappedSeOnSource],
         debuffedBy: logLine.statusEffectsOnTarget.map((v, _i, _a)=>(v[0] as number)),
       };
 
