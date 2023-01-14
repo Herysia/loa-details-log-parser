@@ -83,6 +83,8 @@ export const playerDebuffIds = new Set([
   341706, 341707, // Glavier: Shackling Blue Dragon, Critical Spear
   390801,  // Striker: Lightning Whisper (What is Fatal Lightning?)
   212801, // Bard: Oratorio
+  605000033, 605000034, 605000035, 605000036, // Dagger Bracelet Effect
+  605000037, 605000038, 605000039, 605000040, // Expose Weakness Bracelet Effect
 ]);
 
 export const playerBuffIds = new Set([
