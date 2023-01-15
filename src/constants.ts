@@ -50,7 +50,7 @@ export const supportAttackBuffIds = new Set([
   211604, 211601, 211605, 211606, 211608, 211609, // Bard Buffs
   211749, // Bard Buff
   361708, 362006, // Paladin Valor and Express Fury
-  500130, 552911, // Paladin: Blessed Aura
+  500130, 500131, 500148, 500149, 500152, 500153, 552911 // Paladin: Blessed Aura
 ]);
 
 export const supportSynergyIds = new Set([
@@ -99,8 +99,7 @@ export const playerBuffIds = new Set([
   251640, 251641, // Deathblade: Dark Order
   171300, 171307, // Gunlancer: Nellasia's Energy
   360101, 360102, // Paladin: Holy Aura
-  500130, 552911, // Paladin: Blessed Aura
-  500131, // Paladin: Aura of Blessing
+  500130, 500131, 500148, 500149, 500152, 500153, 552911 // Paladin: Blessed Aura
 ]);
 
 export const playerBuffMap = new Map([
@@ -110,6 +109,5 @@ export const playerBuffMap = new Map([
   [220703, 220703], [221229, 220703], [221604, 220703], [220307, 220703], [230203, 220703], [242508, 220703], [241801, 220703], [170402, 220703], [170802, 220703], [170901, 220703], [171901, 220703], // Ready Attack
   [251640, 251641], // Deathblade: Dark Order
   [171300, 171307], // Gunlancer: Nellasia's Energy
-  [360101, 360101], [360102, 360101], // Paladin: Holy Aura
-  [500130, 500130], [552911, 500130], // Paladin: Blessed Aura
+  [360101, 360101], [360102, 360101], [500130, 360101], [500131, 360101], [500148, 360101], [500149, 360101], [500152, 360101], [500153, 360101], [552911, 360101] // Paladin Blessed Aura and Holy Aura to Holy Aura
 ]);
