@@ -88,11 +88,6 @@ export const playerDebuffIds = new Set([
 ]);
 
 export const playerBuffIds = new Set([
-  500033, // Drops of Ether (the no new drops debuff)
-  703, // Defense Orb
-  702, // Wind Orb
-  704, // Strength Orb
-  705, // Flash Orb
   211400, 211410, 211411, 211401, 211420, 211421, 211423, 211424, 211425, // Serenade of Courage
   211604, 211601, 211605, 211606, 211608, 211609, // Bard Buffs
   211749, // Bard Buff
