@@ -3,7 +3,7 @@ import { EventEmitter } from "events";
 
 import * as LogLines from "./log-lines";
 import { tryParseInt } from "./util";
-import { healingSkills, HitFlag, HitOption, playerBuffIds, playerBuffMap, playerDebuffIds, supportAttackBuffIds, supportSynergyIds } from "./constants";
+import { healingSkills, HitFlag, HitOption, playerBuffIds, playerBuffMap, playerDebuffIds, playerDebuffMap, supportAttackBuffIds, supportSynergyIds } from "./constants";
 
 export interface DamageStatistics {
   totalDamageDealt: number;
@@ -674,7 +674,9 @@ export class LogParser extends EventEmitter {
 
     // map status effects
     const mappedSeOnSource: Set<number> = new Set();
+    const mappedSeOnTarget: Set<number> = new Set();
     logLine.statusEffectsOnSource.forEach((v, _i, _a) => {const buffid = v[0] as number; mappedSeOnSource.add(playerBuffMap.get(buffid) ?? buffid)});
+    logLine.statusEffectsOnTarget.forEach((v, _i, _a) => {const buffid = v[0] as number; mappedSeOnTarget.add(playerDebuffMap.get(buffid) ?? buffid)});
 
     const critCount = isCrit ? 1 : 0;
     const backAttackCount = isBackAttack ? 1 : 0;
@@ -695,11 +697,11 @@ export class LogParser extends EventEmitter {
       const oldOwnerDamage = damageOwner.damageDealtBuffedBy.get(v) ?? 0;
       damageOwner.damageDealtBuffedBy.set(v, oldOwnerDamage+logLine.damage);
     });
-    logLine.statusEffectsOnTarget.forEach((v, _i, _a) => {
-      const oldSkillDmg = skill!.damageDebuffedBy.get(v[0] as number) ?? 0;
-      skill!.damageDebuffedBy.set(v[0] as number, oldSkillDmg+logLine.damage);
-      const oldOwnerDamage = damageOwner.damageDealtDebuffedBy.get(v[0] as number) ?? 0;
-      damageOwner.damageDealtDebuffedBy.set(v[0] as number, oldOwnerDamage+logLine.damage);
+    mappedSeOnTarget.forEach((skillId, _i, _a) => {
+      const oldSkillDmg = skill!.damageDebuffedBy.get(skillId) ?? 0;
+      skill!.damageDebuffedBy.set(skillId, oldSkillDmg+logLine.damage);
+      const oldOwnerDamage = damageOwner.damageDealtDebuffedBy.get(skillId) ?? 0;
+      damageOwner.damageDealtDebuffedBy.set(skillId, oldOwnerDamage+logLine.damage);
     });
 
     damageOwner.damageDealt += logLine.damage;
@@ -720,11 +722,11 @@ export class LogParser extends EventEmitter {
         const oldHitAmountSkill = skill!.hits.hitsBuffedBy.get(v) ?? 0;
         skill!.hits.hitsBuffedBy.set(v, oldHitAmountSkill + 1);
       });
-      logLine.statusEffectsOnTarget.forEach((v, _i, _a) => {
-        const oldHitAmountTotal = damageOwner.hits.hitsDebuffedBy.get(v[0] as number) ?? 0;
-        damageOwner.hits.hitsDebuffedBy.set(v[0] as number, oldHitAmountTotal + 1);
-        const oldHitAmountSkill = skill!.hits.hitsDebuffedBy.get(v[0] as number) ?? 0;
-        skill!.hits.hitsDebuffedBy.set(v[0] as number, oldHitAmountSkill + 1);
+      mappedSeOnTarget.forEach((skillId, _i, _a) => {
+        const oldHitAmountTotal = damageOwner.hits.hitsDebuffedBy.get(skillId) ?? 0;
+        damageOwner.hits.hitsDebuffedBy.set(skillId, oldHitAmountTotal + 1);
+        const oldHitAmountSkill = skill!.hits.hitsDebuffedBy.get(skillId) ?? 0;
+        skill!.hits.hitsDebuffedBy.set(skillId, oldHitAmountSkill + 1);
       });
 
       skill.hits.total += 1;
@@ -745,7 +747,7 @@ export class LogParser extends EventEmitter {
         if(playerBuffIds.has(skillId))
           this.game.damageStatistics.buffs.add(skillId)
       });
-      logLine.statusEffectsOnTarget.forEach((v, _i, _a) => { const skillId = v[0] as number; if(playerDebuffIds.has(skillId)) this.game.damageStatistics.debuffs.add(skillId) });
+      mappedSeOnTarget.forEach((skillId, _i, _a) => { if(playerDebuffIds.has(skillId)) this.game.damageStatistics.debuffs.add(skillId) });
       const breakdown: Breakdown = {
         timestamp: +logLine.timestamp,
         damage: logLine.damage,
@@ -756,7 +758,7 @@ export class LogParser extends EventEmitter {
         isBuffedBySupport: isBuffedBySupport,
         isDebuffedBySupport: isDebuffedBySupport,
         buffedBy: [...mappedSeOnSource],
-        debuffedBy: logLine.statusEffectsOnTarget.map((v, _i, _a)=>(v[0] as number)),
+        debuffedBy: [...mappedSeOnTarget],
       };
 
       skill.breakdown.push(breakdown);
