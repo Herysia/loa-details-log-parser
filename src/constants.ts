@@ -61,7 +61,8 @@ export const supportSynergyIds = new Set([
 export const playerDebuffIds = new Set([
   301830, // Artillerist: Party: Target Focus
   210230, 212610, // Bard: Note Brand
-  212302, 212303, 212304, // Bard: Symphonia
+  //212801, // Bard: Oratorio
+  //212302, 212303, 212304, // Bard: Symphonia
   170404, // Gunlancer: Party: Armor Destruction
   171807, // Gunlancer: Open Weakness
   360506, 360804, 361004, 361207, 361505, // Paladin: Light's Vestige
@@ -82,7 +83,6 @@ export const playerDebuffIds = new Set([
   182107, 232105, // Party: Target Focus one of these is Scrapper
   341706, 341707, // Glavier: Shackling Blue Dragon, Critical Spear
   390801,  // Striker: Lightning Whisper (What is Fatal Lightning?)
-  212801, // Bard: Oratorio
   605000033, 605000034, 605000035, 605000036, // Dagger Bracelet Effect
   605000037, 605000038, 605000039, 605000040, // Expose Weakness Bracelet Effect
 ]);
