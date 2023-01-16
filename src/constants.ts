@@ -63,6 +63,7 @@ export const playerDebuffIds = new Set([
   210230, 212610, // Bard: Note Brand
   //212801, // Bard: Oratorio
   //212302, 212303, 212304, // Bard: Symphonia
+  341706, 341707, // Glavier: Shackling Blue Dragon, Critical Spear
   170404, // Gunlancer: Party: Armor Destruction
   171807, // Gunlancer: Open Weakness
   360506, 360804, 361004, 361207, 361505, // Paladin: Light's Vestige
@@ -70,7 +71,10 @@ export const playerDebuffIds = new Set([
   270501, 278100, // Shadowhunter: Party: Damage Amplification
   280412, // Sharpshooter: Party: Damage Amplification
   372020, // Sorceress: Party: Damage Amplification
+  390801,  // Striker: Lightning Whisper (What is Fatal Lightning?)
   220805, 220801, // Wardancer: Fatal Wave, Roar of Courage
+  605000033, 605000034, 605000035, 605000036, // Dagger Bracelet Effect
+  605000037, 605000038, 605000039, 605000040, // Expose Weakness Bracelet Effect
   271303, 271704, 230611, 230906, 231803, 280212, // Party: Damage Amplification
   281114, 372120, 372452, 161102, 161210, 162230, // Party: Damage Amplification
   300402, 300510, 300902, 301006, 171002, 171502, 180111, // Party: Armor Destruction
@@ -81,10 +85,6 @@ export const playerDebuffIds = new Set([
   191720, 192306, 192612, 193207, 291230, 291820, 292220, // Party: Weakness Exposure
   321120, 321320, 321730, 381820, 382030, 382220, // Party: Weakness Exposure
   182107, 232105, // Party: Target Focus one of these is Scrapper
-  341706, 341707, // Glavier: Shackling Blue Dragon, Critical Spear
-  390801,  // Striker: Lightning Whisper (What is Fatal Lightning?)
-  605000033, 605000034, 605000035, 605000036, // Dagger Bracelet Effect
-  605000037, 605000038, 605000039, 605000040, // Expose Weakness Bracelet Effect
 ]);
 
 export const playerBuffIds = new Set([
