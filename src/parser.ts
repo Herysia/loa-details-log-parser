@@ -126,8 +126,8 @@ interface Hits {
   counter: number;
   hitsDebuffedBySupport: number;
   hitsBuffedBySupport: number;
-  hitsBuffedBy: Map<number, number>,
-  hitsDebuffedBy: Map<number, number>,
+  hitsBuffedBy: Map<number, number>;
+  hitsDebuffedBy: Map<number, number>;
 }
 function createEntity(): Entity {
   const newEntity: Entity = {
