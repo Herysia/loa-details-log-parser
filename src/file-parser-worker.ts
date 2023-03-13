@@ -1,6 +1,7 @@
 import dayjs from "dayjs";
 import { LogParser } from "./parser";
 import { v4 as uuidv4 } from "uuid";
+import type { MeterData } from "meter-core/dist/data";
 
 import fs from "fs";
 import path from "path";
@@ -23,6 +24,7 @@ export function fileParserWorker(
   splitOnPhaseTransition: boolean,
   mainFolder: string,
   parsedLogFolder: string,
+  meterData: MeterData,
   callback: CallableFunction
 ) {
   try {
@@ -32,7 +34,7 @@ export function fileParserWorker(
     const contents = fs.readFileSync(path.join(mainFolder, filename), "utf-8");
     if (!contents) return callback(null, "empty log");
 
-    const logParser = new LogParser(false);
+    const logParser = new LogParser(meterData, false);
     if (splitOnPhaseTransition === true) logParser.splitOnPhaseTransition = true;
 
     const lines = contents.split("\n").filter((x) => x != null && x != "");
@@ -82,10 +84,13 @@ export function fileParserWorker(
 
         fs.writeFileSync(
           path.join(parsedLogFolder, encounterFile),
-          JSON.stringify({
-            ...encounter,
-            ...encounterDetails,
-          }, replacer)
+          JSON.stringify(
+            {
+              ...encounter,
+              ...encounterDetails,
+            },
+            replacer
+          )
         );
       }
 
@@ -99,15 +104,15 @@ export function fileParserWorker(
     return callback(e, "log parser error");
   }
 
-  function replacer(_key: any, value:any) {
-    if(value instanceof Map) {
+  function replacer(_key: any, value: any) {
+    if (value instanceof Map) {
       return {
-        dataType: 'Map',
+        dataType: "Map",
         value: Array.from(value.entries()),
       };
-    } else if(value instanceof Set){
+    } else if (value instanceof Set) {
       return {
-        dataType: 'Set',
+        dataType: "Set",
         value: Array.from(value.values()),
       };
     } else {

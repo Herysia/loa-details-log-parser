@@ -1,8 +1,12 @@
 {
-    "extends": "@tsconfig/node18-strictest-esm/tsconfig.json",
-    "compilerOptions": {
-        "noUnusedLocals": false,
-        "noUnusedParameters": false
-    },
-    "include": ["src/*"]
+  "extends": "@tsconfig/node18-strictest-esm/tsconfig.json",
+  "compilerOptions": {
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "baseUrl": ".",
+    "paths": {
+      "meter-core/*": ["node_modules/meter-core/dist/*"]
+    }
+  },
+  "include": ["src/*"]
 }

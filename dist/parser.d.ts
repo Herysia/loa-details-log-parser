@@ -1,85 +1,7 @@
+import { Game, HealSource, EntitySkills, Hits, StatusEffect, StatusEffectBuffTypeFlags } from './data.js';
 import { EventEmitter } from 'events';
+import { MeterData, SkillBuff } from 'meter-core/data';
 
-interface DamageStatistics {
-    totalDamageDealt: number;
-    topDamageDealt: number;
-    totalDamageTaken: number;
-    topDamageTaken: number;
-    totalHealingDone: number;
-    topHealingDone: number;
-    totalShieldDone: number;
-    topShieldDone: number;
-}
-interface Game {
-    startedOn: number;
-    lastCombatPacket: number;
-    fightStartedOn: number;
-    localPlayer: string;
-    entities: {
-        [name: string]: Entity;
-    };
-    damageStatistics: DamageStatistics;
-}
-interface GameNew {
-    startedOn: number;
-    lastCombatPacket: number;
-    fightStartedOn: number;
-    entities: {
-        [name: string]: Entity;
-    };
-    damageStatistics: DamageStatistics;
-}
-interface HealSource {
-    source: string;
-    expires: number;
-}
-interface Entity {
-    lastUpdate: number;
-    id: string;
-    npcId: number;
-    name: string;
-    class: string;
-    classId: number;
-    isPlayer: boolean;
-    isDead: boolean;
-    deaths: number;
-    deathTime: number;
-    gearScore: number;
-    currentHp: number;
-    maxHp: number;
-    damageDealt: number;
-    healingDone: number;
-    shieldDone: number;
-    damageTaken: number;
-    skills: {
-        [name: string]: EntitySkills;
-    };
-    hits: Hits;
-}
-interface Breakdown {
-    timestamp: number;
-    damage: number;
-    targetEntity: string;
-    isCrit: boolean;
-    isBackAttack: boolean;
-    isFrontAttack: boolean;
-}
-interface EntitySkills {
-    id: number;
-    name: string;
-    totalDamage: number;
-    maxDamage: number;
-    hits: Hits;
-    breakdown: Breakdown[];
-}
-interface Hits {
-    casts: number;
-    total: number;
-    crit: number;
-    backAttack: number;
-    frontAttack: number;
-    counter: number;
-}
 declare class LogParser extends EventEmitter {
     resetTimer: ReturnType<typeof setTimeout> | null;
     debugLines: boolean;
@@ -93,7 +15,8 @@ declare class LogParser extends EventEmitter {
     game: Game;
     encounters: Game[];
     healSources: HealSource[];
-    constructor(isLive?: boolean);
+    meterData: MeterData;
+    constructor(meterData: MeterData, isLive?: boolean);
     updateOrCreateLocalPlayer(newLocal: string): void;
     resetState(): void;
     softReset(): void;
@@ -116,6 +39,8 @@ declare class LogParser extends EventEmitter {
         currentHp: number;
         maxHp: number;
         damageDealt: number;
+        damageDealtDebuffedBySupport: number;
+        damageDealtBuffedBySupport: number;
         healingDone: number;
         shieldDone: number;
         damageTaken: number;
@@ -123,6 +48,8 @@ declare class LogParser extends EventEmitter {
             [name: string]: EntitySkills;
         };
         hits: Hits;
+        damageDealtDebuffedBy: Map<number, number>;
+        damageDealtBuffedBy: Map<number, number>;
     };
     onMessage(lineSplit: string[]): void;
     onInitEnv(lineSplit: string[]): void;
@@ -136,6 +63,12 @@ declare class LogParser extends EventEmitter {
     onHeal(lineSplit: string[]): void;
     onBuff(lineSplit: string[]): void;
     onCounterattack(lineSplit: string[]): void;
+    getSkillNameIcon(skillId: number, skillEffectId: number, skillName: string): {
+        name: string;
+        icon?: string;
+    };
+    getStatusEffectHeaderData(buffId: number): StatusEffect | undefined;
+    getStatusEffectBuffTypeFlags(buff: SkillBuff): StatusEffectBuffTypeFlags;
 }
 
-export { Breakdown, DamageStatistics, Entity, EntitySkills, Game, GameNew, HealSource, LogParser };
+export { LogParser };

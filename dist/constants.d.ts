@@ -28,5 +28,11 @@ declare enum HitFlag {
     HIT_FLAG_DODGE_HIT = 12,
     HIT_FLAG_MAX = 13
 }
+declare const supportAttackBuffIds: Set<number>;
+declare const supportSynergyIds: Set<number>;
+declare const playerDebuffIds: Set<number>;
+declare const playerBuffIds: Set<number>;
+declare const playerBuffMap: Map<number, number>;
+declare const playerDebuffMap: Map<number, number>;
 
-export { HitFlag, HitOption, healingSkills };
+export { HitFlag, HitOption, healingSkills, playerBuffIds, playerBuffMap, playerDebuffIds, playerDebuffMap, supportAttackBuffIds, supportSynergyIds };

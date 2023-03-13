@@ -8,6 +8,11 @@
       "import": "./dist/parser.mjs",
       "types": "./dist/parser.d.ts"
     },
+    "./data": {
+      "require": "./dist/data.js",
+      "import": "./dist/data.mjs",
+      "types": "./dist/data.d.ts"
+    },
     "./worker": {
       "require": "./dist/file-parser-worker.js",
       "import": "./dist/file-parser-worker.mjs",
@@ -27,6 +32,7 @@
     "@types/lodash": "^4.14.182",
     "@types/node": "^18.11.11",
     "@types/uuid": "^9.0.0",
+    "meter-core": "github:lost-ark-dev/meter-core",
     "tsup": "^6.5.0"
   },
   "dependencies": {

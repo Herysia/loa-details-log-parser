@@ -68,6 +68,8 @@ declare class LogDamage extends LogLine {
     damageModifier: number;
     currentHp: number;
     maxHp: number;
+    statusEffectsOnTarget: (number | string)[][];
+    statusEffectsOnSource: (number | string)[][];
     constructor(lineSplit: string[]);
 }
 declare class LogHeal extends LogLine {

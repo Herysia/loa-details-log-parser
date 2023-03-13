@@ -1,102 +1,29 @@
 import { cloneDeep } from "lodash";
 import { EventEmitter } from "events";
-
+import type { MeterData, SkillBuff } from "meter-core/data";
+import { stattype } from "meter-core/packets/generated/enums";
 import * as LogLines from "./log-lines";
 import { tryParseInt } from "./util";
-import { healingSkills, HitFlag, HitOption, playerBuffIds, playerBuffMap, playerDebuffIds, playerDebuffMap, supportAttackBuffIds, supportSynergyIds } from "./constants";
-
-export interface DamageStatistics {
-  totalDamageDealt: number;
-  topDamageDealt: number;
-  totalDamageTaken: number;
-  topDamageTaken: number;
-  totalHealingDone: number;
-  topHealingDone: number;
-  totalShieldDone: number;
-  topShieldDone: number;
-  debuffs: Set<number>;
-  buffs: Set<number>;
-}
-
-export interface Game {
-  startedOn: number;
-  lastCombatPacket: number;
-  fightStartedOn: number;
-  localPlayer: string;
-  entities: { [name: string]: Entity };
-  damageStatistics: DamageStatistics;
-}
-export interface GameNew {
-  startedOn: number;
-  lastCombatPacket: number;
-  fightStartedOn: number;
-  entities: { [name: string]: Entity };
-  damageStatistics: DamageStatistics;
-}
-export interface HealSource {
-  source: string;
-  expires: number;
-}
-
-export interface Entity {
-  lastUpdate: number;
-  id: string;
-  npcId: number;
-  name: string;
-  class: string;
-  classId: number;
-  isPlayer: boolean;
-  isDead: boolean;
-  deaths: number;
-  deathTime: number;
-  gearScore: number;
-  currentHp: number;
-  maxHp: number;
-  damageDealt: number;
-  damageDealtDebuffedBySupport: number;
-  damageDealtBuffedBySupport: number;
-  healingDone: number;
-  shieldDone: number;
-  damageTaken: number;
-  skills: { [name: string]: EntitySkills };
-  hits: Hits;
-  damageDealtDebuffedBy: Map<number, number>;
-  damageDealtBuffedBy: Map<number, number>;
-}
-
-export interface Breakdown {
-  timestamp: number;
-  damage: number;
-  targetEntity: string;
-  isCrit: boolean;
-  isBackAttack: boolean;
-  isFrontAttack: boolean;
-  isBuffedBySupport: boolean;
-  isDebuffedBySupport: boolean;
-  debuffedBy: number[];
-  buffedBy: number[];
-}
-
-export interface EntitySkills {
-  id: number;
-  name: string;
-  totalDamage: number;
-  damageDebuffedBySupport: number;
-  damageBuffedBySupport: number;
-  maxDamage: number;
-  hits: Hits;
-  breakdown: Breakdown[];
-  damageDebuffedBy: Map<number, number>;
-  damageBuffedBy: Map<number, number>;
-}
+import {
+  EntitySkills,
+  Breakdown,
+  Entity,
+  HealSource,
+  Game,
+  StatusEffect,
+  StatusEffectBuffTypeFlags,
+  StatusEffectTarget,
+} from "./data";
+import { healingSkills, HitFlag, HitOption } from "./constants";
 
 function createEntitySkill(): EntitySkills {
   const newEntitySkill: EntitySkills = {
     id: 0,
     name: "",
-    totalDamage: 0,
-    damageDebuffedBySupport: 0,
-    damageBuffedBySupport: 0,
+    icon: "",
+    damageDealt: 0,
+    damageDealtDebuffedBySupport: 0,
+    damageDealtBuffedBySupport: 0,
     maxDamage: 0,
     hits: {
       casts: 0,
@@ -111,24 +38,12 @@ function createEntitySkill(): EntitySkills {
       hitsDebuffedBy: new Map(),
     },
     breakdown: [],
-    damageDebuffedBy: new Map(),
-    damageBuffedBy: new Map(),
+    damageDealtDebuffedBy: new Map(),
+    damageDealtBuffedBy: new Map(),
   };
   return newEntitySkill;
 }
 
-interface Hits {
-  casts: number;
-  total: number;
-  crit: number;
-  backAttack: number;
-  frontAttack: number;
-  counter: number;
-  hitsDebuffedBySupport: number;
-  hitsBuffedBySupport: number;
-  hitsBuffedBy: Map<number, number>;
-  hitsDebuffedBy: Map<number, number>;
-}
 function createEntity(): Entity {
   const newEntity: Entity = {
     lastUpdate: 0,
@@ -170,7 +85,6 @@ function createEntity(): Entity {
 }
 
 export class LogParser extends EventEmitter {
-
   resetTimer: ReturnType<typeof setTimeout> | null;
 
   debugLines: boolean;
@@ -187,8 +101,12 @@ export class LogParser extends EventEmitter {
   encounters: Game[];
   healSources!: HealSource[];
 
-  constructor(isLive = false) {
+  meterData: MeterData;
+
+  constructor(meterData: MeterData, isLive = false) {
     super();
+
+    this.meterData = meterData;
 
     this.resetTimer = null;
 
@@ -259,8 +177,8 @@ export class LogParser extends EventEmitter {
         topHealingDone: 0,
         totalShieldDone: 0,
         topShieldDone: 0,
-        debuffs: new Set(),
-        buffs: new Set(),
+        debuffs: new Map(),
+        buffs: new Map(),
       },
     };
 
@@ -565,7 +483,7 @@ export class LogParser extends EventEmitter {
         message: `onSkillStart: ${logLine.id}, ${logLine.name}, ${logLine.skillId}, ${logLine.skillName}`,
       });
     }
-    const healingSkill = healingSkills[logLine.skillName];
+    const healingSkill = healingSkills[logLine.skillId];
     if (healingSkill) {
       this.healSources.push({
         source: logLine.name,
@@ -581,15 +499,19 @@ export class LogParser extends EventEmitter {
     const entity = this.game.entities[logLine.name];
     if (entity) {
       entity.hits.casts += 1;
-      let skill = entity.skills[logLine.skillName];
+      let skill = entity.skills[logLine.skillId];
       if (!skill) {
         skill = {
           ...createEntitySkill(),
-          ...{ id: logLine.skillId, name: logLine.skillName },
+          ...{
+            id: logLine.skillId,
+          },
+          ...this.getSkillNameIcon(logLine.skillId, 0, logLine.skillName),
         };
-        entity.skills[logLine.skillName] = skill;
-        skill.hits.casts += 1;
+        entity.skills[logLine.skillId] = skill;
       }
+
+      skill.hits.casts += 1;
     }
   }
 
@@ -644,18 +566,22 @@ export class LogParser extends EventEmitter {
     if (!damageTarget.isPlayer && this.removeOverkillDamage && logLine.currentHp < 0) {
       logLine.damage = logLine.damage + logLine.currentHp;
     }
-
+    let skillId = logLine.skillId,
+      skillName = logLine.skillName;
     if (logLine.skillId === 0 && logLine.skillEffectId !== 0) {
-      logLine.skillId = logLine.skillEffectId;
-      logLine.skillName = logLine.skillEffect;
+      skillId = logLine.skillEffectId;
+      skillName = logLine.skillEffect;
     }
-    let skill = damageOwner.skills[logLine.skillName];
+    let skill = damageOwner.skills[logLine.skillId];
     if (!skill) {
       skill = {
         ...createEntitySkill(),
-        ...{ id: logLine.skillId, name: logLine.skillName },
+        ...{
+          id: skillId,
+        },
+        ...this.getSkillNameIcon(logLine.skillId, logLine.skillEffectId, logLine.skillName),
       };
-      damageOwner.skills[logLine.skillName] = skill;
+      damageOwner.skills[logLine.skillId] = skill;
     }
 
     const hitFlag: HitFlag = logLine.damageModifier & 0xf;
@@ -663,10 +589,10 @@ export class LogParser extends EventEmitter {
 
     // TODO: Keeping for now; Not sure if referring to damage share on Valtan G1 or something else
     // TODO: Not sure if this is fixed in the logger
-    if (logLine.skillName === "Bleed" && logLine.damage > 10000000) return;
+    //if (logLine.skillName === "Bleed" && logLine.damage > 10000000) return;
 
     // Remove 'sync' bleeds on G1 Valtan
-    if (logLine.skillName === "Bleed" && hitFlag === HitFlag.HIT_FLAG_DAMAGE_SHARE) return;
+    if (skillName === "Bleed" && hitFlag === HitFlag.HIT_FLAG_DAMAGE_SHARE) return;
 
     const isCrit = hitFlag === HitFlag.HIT_FLAG_CRITICAL || hitFlag === HitFlag.HIT_FLAG_DOT_CRITICAL;
     const isBackAttack = hitOption === HitOption.HIT_OPTION_BACK_ATTACK;
@@ -675,67 +601,34 @@ export class LogParser extends EventEmitter {
     // map status effects
     const mappedSeOnSource: Set<number> = new Set();
     const mappedSeOnTarget: Set<number> = new Set();
-    logLine.statusEffectsOnSource.forEach((v, _i, _a) => {const buffid = v[0] as number; mappedSeOnSource.add(playerBuffMap.get(buffid) ?? buffid)});
-    logLine.statusEffectsOnTarget.forEach((v, _i, _a) => {const buffid = v[0] as number; mappedSeOnTarget.add(playerDebuffMap.get(buffid) ?? buffid)});
+    logLine.statusEffectsOnSource.forEach((buffId) => {
+      mappedSeOnSource.add(buffId[0] as number);
+    });
+    logLine.statusEffectsOnTarget.forEach((buffId) => {
+      mappedSeOnTarget.add(buffId[0] as number);
+    });
 
     const critCount = isCrit ? 1 : 0;
     const backAttackCount = isBackAttack ? 1 : 0;
     const frontAttackCount = isFrontAttack ? 1 : 0;
-    var isBuffedBySupport = logLine.statusEffectsOnSource.filter((value, _index, _array) => supportAttackBuffIds.has(value[0] as number)).length > 0;
-    var isDebuffedBySupport = logLine.statusEffectsOnTarget.filter((value, _i, _a) => supportSynergyIds.has(value[0] as number)).length > 0;
-    const debuffAttackCount = isDebuffedBySupport ? 1 : 0;
-    const buffAttackCount = isBuffedBySupport ? 1 : 0;
 
-    skill.totalDamage += logLine.damage;
-    skill.damageBuffedBySupport += isBuffedBySupport ? logLine.damage : 0;
-    skill.damageDebuffedBySupport  += isDebuffedBySupport ? logLine.damage : 0;
+    skill.damageDealt += logLine.damage;
     if (logLine.damage > skill.maxDamage) skill.maxDamage = logLine.damage;
-
-    mappedSeOnSource.forEach((v, _i, _a) => {
-      const oldval = skill!.damageBuffedBy.get(v) ?? 0;
-      skill!.damageBuffedBy.set(v, oldval+logLine.damage);
-      const oldOwnerDamage = damageOwner.damageDealtBuffedBy.get(v) ?? 0;
-      damageOwner.damageDealtBuffedBy.set(v, oldOwnerDamage+logLine.damage);
-    });
-    mappedSeOnTarget.forEach((skillId, _i, _a) => {
-      const oldSkillDmg = skill!.damageDebuffedBy.get(skillId) ?? 0;
-      skill!.damageDebuffedBy.set(skillId, oldSkillDmg+logLine.damage);
-      const oldOwnerDamage = damageOwner.damageDealtDebuffedBy.get(skillId) ?? 0;
-      damageOwner.damageDealtDebuffedBy.set(skillId, oldOwnerDamage+logLine.damage);
-    });
 
     damageOwner.damageDealt += logLine.damage;
     damageTarget.damageTaken += logLine.damage;
-    damageOwner.damageDealtBuffedBySupport += isBuffedBySupport ? logLine.damage : 0;
-    damageOwner.damageDealtDebuffedBySupport += isDebuffedBySupport ? logLine.damage : 0;
 
-    if (logLine.skillName !== "Bleed") {
-      damageOwner.hits.total += 1;
-      damageOwner.hits.crit += critCount;
-      damageOwner.hits.backAttack += backAttackCount;
-      damageOwner.hits.frontAttack += frontAttackCount;
-      damageOwner.hits.hitsBuffedBySupport += buffAttackCount;
-      damageOwner.hits.hitsDebuffedBySupport += debuffAttackCount;
-      mappedSeOnSource.forEach((v, _i, _a) => {
-        const oldHitAmountTotal = damageOwner.hits.hitsBuffedBy.get(v) ?? 0;
-        damageOwner.hits.hitsBuffedBy.set(v, oldHitAmountTotal + 1);
-        const oldHitAmountSkill = skill!.hits.hitsBuffedBy.get(v) ?? 0;
-        skill!.hits.hitsBuffedBy.set(v, oldHitAmountSkill + 1);
-      });
-      mappedSeOnTarget.forEach((skillId, _i, _a) => {
-        const oldHitAmountTotal = damageOwner.hits.hitsDebuffedBy.get(skillId) ?? 0;
-        damageOwner.hits.hitsDebuffedBy.set(skillId, oldHitAmountTotal + 1);
-        const oldHitAmountSkill = skill!.hits.hitsDebuffedBy.get(skillId) ?? 0;
-        skill!.hits.hitsDebuffedBy.set(skillId, oldHitAmountSkill + 1);
-      });
+    //if (logLine.skillName !== "Bleed") {
+    damageOwner.hits.total += 1;
+    damageOwner.hits.crit += critCount;
+    damageOwner.hits.backAttack += backAttackCount;
+    damageOwner.hits.frontAttack += frontAttackCount;
 
-      skill.hits.total += 1;
-      skill.hits.crit += critCount;
-      skill.hits.backAttack += backAttackCount;
-      skill.hits.frontAttack += frontAttackCount;
-      skill.hits.hitsBuffedBySupport += buffAttackCount;
-      skill.hits.hitsDebuffedBySupport += debuffAttackCount;
-    }
+    skill.hits.total += 1;
+    skill.hits.crit += critCount;
+    skill.hits.backAttack += backAttackCount;
+    skill.hits.frontAttack += frontAttackCount;
+    //}
 
     if (damageOwner.isPlayer) {
       this.game.damageStatistics.totalDamageDealt += logLine.damage;
@@ -743,11 +636,84 @@ export class LogParser extends EventEmitter {
         this.game.damageStatistics.topDamageDealt,
         damageOwner.damageDealt
       );
-      mappedSeOnSource.forEach((skillId, _i, _a) => {
-        if(playerBuffIds.has(skillId))
-          this.game.damageStatistics.buffs.add(skillId)
+      //#region Player buff
+      let isBuffedBySupport = false,
+        isDebuffedBySupport = false;
+
+      mappedSeOnSource.forEach((buffId) => {
+        //TODO: cache invalid results (if statusEffect is undefined, don't query again every time)
+        if (!this.game.damageStatistics.buffs.has(buffId)) {
+          const statusEffect = this.getStatusEffectHeaderData(buffId);
+          if (statusEffect) this.game.damageStatistics.buffs.set(buffId, statusEffect);
+        }
+        const statusEffect = this.game.damageStatistics.buffs.get(buffId);
+        if (statusEffect && !isBuffedBySupport) {
+          isBuffedBySupport =
+            (statusEffect.buffcategory === "classskill" ||
+              statusEffect.buffcategory === "identity" ||
+              statusEffect.buffcategory === "ability") &&
+            statusEffect.source.skill !== undefined &&
+            this.meterData.isSupportClassId(statusEffect.source.skill.classid);
+        }
       });
-      mappedSeOnTarget.forEach((skillId, _i, _a) => { if(playerDebuffIds.has(skillId)) this.game.damageStatistics.debuffs.add(skillId) });
+      mappedSeOnTarget.forEach((buffId) => {
+        if (!this.game.damageStatistics.debuffs.has(buffId)) {
+          const statusEffect = this.getStatusEffectHeaderData(buffId);
+          if (statusEffect) this.game.damageStatistics.debuffs.set(buffId, statusEffect);
+        }
+        const statusEffect = this.game.damageStatistics.debuffs.get(buffId);
+        if (statusEffect && !isDebuffedBySupport) {
+          isDebuffedBySupport =
+            (statusEffect.buffcategory === "classskill" ||
+              statusEffect.buffcategory === "identity" ||
+              statusEffect.buffcategory === "ability") &&
+            statusEffect.source.skill !== undefined &&
+            this.meterData.isSupportClassId(statusEffect.source.skill.classid);
+        }
+      });
+
+      const debuffAttackCount = isDebuffedBySupport ? 1 : 0;
+      const buffAttackCount = isBuffedBySupport ? 1 : 0;
+
+      skill.damageDealtBuffedBySupport += isBuffedBySupport ? logLine.damage : 0;
+      skill.damageDealtDebuffedBySupport += isDebuffedBySupport ? logLine.damage : 0;
+
+      mappedSeOnSource.forEach((buffId) => {
+        const oldval = skill!.damageDealtBuffedBy.get(buffId) ?? 0;
+        skill!.damageDealtBuffedBy.set(buffId, oldval + logLine.damage);
+        const oldOwnerDamage = damageOwner.damageDealtBuffedBy.get(buffId) ?? 0;
+        damageOwner.damageDealtBuffedBy.set(buffId, oldOwnerDamage + logLine.damage);
+      });
+      mappedSeOnTarget.forEach((buffId) => {
+        const oldSkillDmg = skill!.damageDealtDebuffedBy.get(buffId) ?? 0;
+        skill!.damageDealtDebuffedBy.set(buffId, oldSkillDmg + logLine.damage);
+        const oldOwnerDamage = damageOwner.damageDealtDebuffedBy.get(buffId) ?? 0;
+        damageOwner.damageDealtDebuffedBy.set(buffId, oldOwnerDamage + logLine.damage);
+      });
+
+      damageOwner.damageDealtBuffedBySupport += isBuffedBySupport ? logLine.damage : 0;
+      damageOwner.damageDealtDebuffedBySupport += isDebuffedBySupport ? logLine.damage : 0;
+
+      damageOwner.hits.hitsBuffedBySupport += buffAttackCount;
+      damageOwner.hits.hitsDebuffedBySupport += debuffAttackCount;
+      mappedSeOnSource.forEach((buffId) => {
+        const oldHitAmountTotal = damageOwner.hits.hitsBuffedBy.get(buffId) ?? 0;
+        damageOwner.hits.hitsBuffedBy.set(buffId, oldHitAmountTotal + 1);
+        const oldHitAmountSkill = skill!.hits.hitsBuffedBy.get(buffId) ?? 0;
+        skill!.hits.hitsBuffedBy.set(buffId, oldHitAmountSkill + 1);
+      });
+      mappedSeOnTarget.forEach((buffId) => {
+        const oldHitAmountTotal = damageOwner.hits.hitsDebuffedBy.get(buffId) ?? 0;
+        damageOwner.hits.hitsDebuffedBy.set(buffId, oldHitAmountTotal + 1);
+        const oldHitAmountSkill = skill!.hits.hitsDebuffedBy.get(buffId) ?? 0;
+        skill!.hits.hitsDebuffedBy.set(buffId, oldHitAmountSkill + 1);
+      });
+
+      skill.hits.hitsBuffedBySupport += buffAttackCount;
+      skill.hits.hitsDebuffedBySupport += debuffAttackCount;
+
+      //#endregion
+
       const breakdown: Breakdown = {
         timestamp: +logLine.timestamp,
         damage: logLine.damage,
@@ -856,5 +822,249 @@ export class LogParser extends EventEmitter {
 
     // TODO: Add skill name from logger
     entity.hits.counter += 1;
+  }
+  getSkillNameIcon(skillId: number, skillEffectId: number, skillName: string): { name: string; icon?: string } {
+    if (skillId === 0 && skillEffectId === 0) {
+      return { name: "Bleed", icon: "buff_168.png" };
+    } else if (skillId === 0) {
+      const effect = this.meterData.skillEffect.get(skillEffectId);
+      // TODO: change log file & meter core to get projectile info in damage log line
+      // Using projectile.skillEffectId, we can get what name was thrown (splendid or not)
+      // See stagger meter for reference
+      if (effect && effect.itemname) {
+        return { name: effect.itemname, icon: effect.icon ?? "" };
+      } else if (effect) {
+        return { name: effect.comment };
+      } else {
+        return { name: skillName };
+      }
+    } else {
+      let skill = this.meterData.skill.get(skillId);
+      if (!skill || skill?.desc === "") {
+        //TODO: hotfix, surely wrong: we should look into how to track summon skills source
+        skill = this.meterData.skill.get(skillId - (skillId % 10));
+      }
+      for (let i = 1; i < 100; i++) {
+        if (skill && skill.desc !== "") break;
+        skill = this.meterData.skill.get(skillId - (skillId % 10) - i * 10);
+      }
+      /*
+      if (!skill || skill?.desc === "") {
+        //TODO: hotfix, surely wrong: we should look into how to track summon skills source
+        const tmpSkill = this.meterData.skill.get(skillId - (skillId % 10) - 10);
+        if (tmpSkill?.desc !== "") skill = tmpSkill;
+      }
+      */
+      if (skill) {
+        return { name: skill.name, icon: skill.icon };
+      } else {
+        return { name: skillName, icon: "" };
+      }
+    }
+  }
+  getStatusEffectHeaderData(buffId: number) {
+    const buff = this.meterData.skillBuff.get(buffId);
+    if (!buff || buff.iconshowtype === "none") return;
+    // Category override
+    let buffcategory;
+    if (buff.buffcategory === "ability" && [501, 502, 503, 504, 505].includes(buff.uniquegroup)) {
+      buffcategory = "dropsofether";
+    } else {
+      buffcategory = buff.buffcategory;
+    }
+    const statusEffect: StatusEffect = {
+      target:
+        buff.target === "none"
+          ? StatusEffectTarget.OTHER
+          : buff.target === "self"
+          ? StatusEffectTarget.SELF
+          : StatusEffectTarget.PARTY, // self+party
+      category: buff.category,
+      buffcategory,
+      bufftype: this.getStatusEffectBuffTypeFlags(buff),
+      uniquegroup: buff.uniquegroup,
+      source: {
+        name: buff.name,
+        desc: buff.desc,
+        icon: buff.icon,
+      },
+    };
+    if (buffcategory === "classskill" || buffcategory === "identity") {
+      const skillId = Math.floor(buffId / 100) * 10;
+      const buffSourceSkill = this.meterData.skill.get(skillId);
+
+      if (buffSourceSkill) statusEffect.source.skill = buffSourceSkill;
+    } else if (buffcategory === "ability" && buff.uniquegroup !== 0) {
+      const skillId = Math.floor(buff.uniquegroup / 100) * 10;
+      const buffSourceSkill = this.meterData.skill.get(skillId);
+
+      if (buffSourceSkill) statusEffect.source.skill = buffSourceSkill;
+    } else if (buffcategory === "set" && buff.setname) {
+      statusEffect.source.setname = buff.setname;
+    }
+
+    return statusEffect;
+  }
+  getStatusEffectBuffTypeFlags(buff: SkillBuff) {
+    let bufftype = StatusEffectBuffTypeFlags.NONE;
+
+    // Extract type from Buff type
+    //TODO check & apply condition of buffs
+    if (
+      [
+        "weaken_defense",
+        "weaken_resistance",
+        "skill_damage_amplify",
+        "beattacked_damage_amplify",
+        "skill_damage_amplify_attack",
+        "directional_attack_amplify",
+        "instant_stat_amplify",
+        "attack_power_amplify",
+        "instant_stat_amplify_by_contents",
+      ].includes(buff.type)
+    ) {
+      bufftype |= StatusEffectBuffTypeFlags.DMG;
+    } else if (["move_speed_down", "all_speed_down"].includes(buff.type)) {
+      bufftype |= StatusEffectBuffTypeFlags.MOVESPEED;
+    } else if (["reset_cooldown"].includes(buff.type)) {
+      bufftype |= StatusEffectBuffTypeFlags.COOLDOWN;
+    } else if (["change_ai_point", "ai_point_amplify"].includes(buff.type)) {
+      bufftype |= StatusEffectBuffTypeFlags.STAGGER;
+    } else if (["increase_identity_gauge"].includes(buff.type)) {
+      bufftype |= StatusEffectBuffTypeFlags.RESOURCE;
+    } /*
+    else if (["aura"].includes(buff.type)) {
+      //TODO: look into ValueA to get the buff applied by the aura (probably useless as we'll get the buff itself)
+    }*/
+
+    // Extract type from passive options
+    buff.passiveoption.forEach((option) => {
+      if (option.type === "stat") {
+        const stat = stattype[option.keystat as keyof typeof stattype];
+        if (!stat) return; //Important, as the previous trick might return undefined
+        if ([stattype.mastery, stattype.mastery_x, stattype.paralyzation_point_rate].includes(stat)) {
+          bufftype |= StatusEffectBuffTypeFlags.STAGGER;
+        }
+        if ([stattype.rapidity, stattype.rapidity_x, stattype.cooldown_reduction].includes(stat)) {
+          bufftype |= StatusEffectBuffTypeFlags.COOLDOWN;
+        }
+        if (
+          [
+            stattype.max_mp,
+            stattype.max_mp_x,
+            stattype.max_mp_x_x,
+            stattype.normal_mp_recovery,
+            stattype.combat_mp_recovery,
+            stattype.normal_mp_recovery_rate,
+            stattype.combat_mp_recovery_rate,
+            stattype.resource_recovery_rate,
+          ].includes(stat)
+        ) {
+          bufftype |= StatusEffectBuffTypeFlags.RESOURCE;
+        }
+        if (
+          [
+            stattype.con,
+            stattype.con_x,
+            stattype.max_hp,
+            stattype.max_hp_x,
+            stattype.max_hp_x_x,
+            stattype.normal_hp_recovery,
+            stattype.combat_hp_recovery,
+            stattype.normal_hp_recovery_rate,
+            stattype.combat_hp_recovery_rate,
+            stattype.self_recovery_rate,
+            stattype.drain_hp_dam_rate,
+            stattype.vitality,
+          ].includes(stat)
+        ) {
+          bufftype |= StatusEffectBuffTypeFlags.HP;
+        }
+        if (
+          (stattype.def <= stat && stat <= stattype.magical_inc_rate) ||
+          [stattype.endurance, stattype.endurance_x].includes(stat)
+        ) {
+          if ((buff.category === "buff" && option.value >= 0) || (buff.category === "debuff" && option.value <= 0)) {
+            bufftype |= StatusEffectBuffTypeFlags.DEFENSE;
+          } else bufftype |= StatusEffectBuffTypeFlags.DMG;
+        }
+        if (stattype.move_speed <= stat && stat <= stattype.vehicle_move_speed_rate) {
+          bufftype |= StatusEffectBuffTypeFlags.MOVESPEED;
+        }
+        if (
+          [stattype.attack_speed, stattype.attack_speed_rate, stattype.rapidity, stattype.rapidity_x].includes(stat)
+        ) {
+          bufftype |= StatusEffectBuffTypeFlags.ATKSPEED;
+        }
+        if ([stattype.critical_hit_rate, stattype.criticalhit, stattype.criticalhit_x].includes(stat)) {
+          bufftype |= StatusEffectBuffTypeFlags.CRIT;
+        }
+        if (
+          (stattype.attack_power_sub_rate_1 <= stat && stat <= stattype.skill_damage_sub_rate_2) ||
+          (stattype.fire_dam_rate <= stat && stat <= stattype.elements_dam_rate) ||
+          [
+            stattype.str,
+            stattype.agi,
+            stattype.int,
+            stattype.str_x,
+            stattype.agi_x,
+            stattype.int_x,
+            stattype.char_attack_dam,
+            stattype.attack_power_rate,
+            stattype.skill_damage_rate,
+            stattype.attack_power_rate_x,
+            stattype.skill_damage_rate_x,
+            stattype.hit_rate,
+            stattype.dodge_rate,
+            stattype.critical_dam_rate,
+            stattype.awakening_dam_rate,
+            stattype.attack_power_addend,
+            stattype.weapon_dam,
+          ].includes(stat)
+        ) {
+          if ((buff.category === "buff" && option.value >= 0) || (buff.category === "debuff" && option.value <= 0)) {
+            bufftype |= StatusEffectBuffTypeFlags.DMG;
+          } else bufftype |= StatusEffectBuffTypeFlags.DEFENSE;
+        }
+      } else if ("skill_critical_ratio" === option.type) {
+        bufftype |= StatusEffectBuffTypeFlags.CRIT;
+      } else if (
+        ["skill_damage", "class_option", "skill_group_damage", "skill_critical_damage", "skill_penetration"].includes(
+          option.type
+        )
+      ) {
+        if ((buff.category === "buff" && option.value >= 0) || (buff.category === "debuff" && option.value <= 0)) {
+          bufftype |= StatusEffectBuffTypeFlags.DMG;
+        } else bufftype |= StatusEffectBuffTypeFlags.DEFENSE;
+      } else if (["skill_cooldown_reduction", "skill_group_cooldown_reduction"].includes(option.type)) {
+        bufftype |= StatusEffectBuffTypeFlags.COOLDOWN;
+      } else if (["skill_mana_reduction", "mana_reduction"].includes(option.type)) {
+        bufftype |= StatusEffectBuffTypeFlags.RESOURCE;
+      } else if ("combat_effect" === option.type) {
+        // Extract type from combat_effect
+        const combatEffect = this.meterData.combatEffect.get(option.keyindex);
+        if (!combatEffect) return;
+        //TODO: evaluate conditions ? or maybe it should be done on meter core & remove those buffs
+        combatEffect.actions.forEach((action) => {
+          if (
+            [
+              "modify_damage",
+              "modify_final_damage",
+              "modify_critical_multiplier",
+              "modify_penetration",
+              "modify_penetration_when_critical",
+              "modify_penetration_addend",
+              "modify_penetration_addend_when_critical",
+              "modify_damage_shield_multiplier",
+            ].includes(action.type)
+          ) {
+            bufftype |= StatusEffectBuffTypeFlags.DMG;
+          } else if ("modify_critical_ratio" === action.type) {
+            bufftype |= StatusEffectBuffTypeFlags.CRIT;
+          }
+        });
+      }
+    });
+    return bufftype;
   }
 }
