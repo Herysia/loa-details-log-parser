@@ -18,24 +18,24 @@ type Encounter = {
     isPlayer: boolean;
   };
 };
+export type FileWorkerOptions = {
+  filename: string;
+  splitOnPhaseTransition: boolean;
+  mainFolder: string;
+  parsedLogFolder: string;
+  meterData: MeterData;
+};
 
-export function fileParserWorker(
-  filename: string,
-  splitOnPhaseTransition: boolean,
-  mainFolder: string,
-  parsedLogFolder: string,
-  meterData: MeterData,
-  callback: CallableFunction
-) {
+export function fileParserWorker(options: FileWorkerOptions, callback: CallableFunction) {
   try {
-    const filenameSlice = filename.slice(0, -4);
+    const filenameSlice = options.filename.slice(0, -4);
     const jsonName = filenameSlice + ".json";
 
-    const contents = fs.readFileSync(path.join(mainFolder, filename), "utf-8");
+    const contents = fs.readFileSync(path.join(options.mainFolder, options.filename), "utf-8");
     if (!contents) return callback(null, "empty log");
 
-    const logParser = new LogParser(meterData, false);
-    if (splitOnPhaseTransition === true) logParser.splitOnPhaseTransition = true;
+    const logParser = new LogParser(options.meterData, false);
+    if (options.splitOnPhaseTransition === true) logParser.splitOnPhaseTransition = true;
 
     const lines = contents.split("\n").filter((x) => x != null && x != "");
     for (const line of lines) {
@@ -83,7 +83,7 @@ export function fileParserWorker(
         });
 
         fs.writeFileSync(
-          path.join(parsedLogFolder, encounterFile),
+          path.join(options.parsedLogFolder, encounterFile),
           JSON.stringify(
             {
               ...encounter,
@@ -94,7 +94,7 @@ export function fileParserWorker(
         );
       }
 
-      fs.writeFileSync(path.join(parsedLogFolder, jsonName), JSON.stringify(masterLog));
+      fs.writeFileSync(path.join(options.parsedLogFolder, jsonName), JSON.stringify(masterLog));
 
       return callback(null, "log parsed");
     }

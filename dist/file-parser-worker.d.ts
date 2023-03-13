@@ -1,5 +1,12 @@
 import { MeterData } from 'meter-core/dist/data';
 
-declare function fileParserWorker(filename: string, splitOnPhaseTransition: boolean, mainFolder: string, parsedLogFolder: string, meterData: MeterData, callback: CallableFunction): any;
+type FileWorkerOptions = {
+    filename: string;
+    splitOnPhaseTransition: boolean;
+    mainFolder: string;
+    parsedLogFolder: string;
+    meterData: MeterData;
+};
+declare function fileParserWorker(options: FileWorkerOptions, callback: CallableFunction): any;
 
-export { fileParserWorker };
+export { FileWorkerOptions, fileParserWorker };
