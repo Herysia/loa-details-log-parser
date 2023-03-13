@@ -985,8 +985,8 @@ export class LogParser extends EventEmitter {
           [stattype.endurance, stattype.endurance_x].includes(stat)
         ) {
           if ((buff.category === "buff" && option.value >= 0) || (buff.category === "debuff" && option.value <= 0)) {
-            bufftype |= StatusEffectBuffTypeFlags.DEFENSE;
-          } else bufftype |= StatusEffectBuffTypeFlags.DMG;
+            bufftype |= StatusEffectBuffTypeFlags.DMG;
+          } else bufftype |= StatusEffectBuffTypeFlags.DEFENSE;
         }
         if (stattype.move_speed <= stat && stat <= stattype.vehicle_move_speed_rate) {
           bufftype |= StatusEffectBuffTypeFlags.MOVESPEED;
