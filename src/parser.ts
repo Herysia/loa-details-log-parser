@@ -1,6 +1,6 @@
 import { cloneDeep } from "lodash";
 import { EventEmitter } from "events";
-import type { MeterData, SkillBuff } from "meter-core/data";
+import type { MeterData, Skill, SkillBuff } from "meter-core/data";
 import { stattype } from "meter-core/packets/generated/enums";
 import * as LogLines from "./log-lines";
 import { tryParseInt } from "./util";
@@ -572,7 +572,7 @@ export class LogParser extends EventEmitter {
       skillId = logLine.skillEffectId;
       skillName = logLine.skillEffect;
     }
-    let skill = damageOwner.skills[logLine.skillId];
+    let skill = damageOwner.skills[skillId];
     if (!skill) {
       skill = {
         ...createEntitySkill(),
@@ -581,7 +581,7 @@ export class LogParser extends EventEmitter {
         },
         ...this.getSkillNameIcon(logLine.skillId, logLine.skillEffectId, logLine.skillName),
       };
-      damageOwner.skills[logLine.skillId] = skill;
+      damageOwner.skills[skillId] = skill;
     }
 
     const hitFlag: HitFlag = logLine.damageModifier & 0xf;
@@ -840,25 +840,20 @@ export class LogParser extends EventEmitter {
       }
     } else {
       let skill = this.meterData.skill.get(skillId);
-      if (!skill || skill?.desc === "") {
-        //TODO: hotfix, surely wrong: we should look into how to track summon skills source
+      if (!skill) {
         skill = this.meterData.skill.get(skillId - (skillId % 10));
+        if (!skill) return { name: skillName, icon: "" };
       }
-      for (let i = 1; i < 100; i++) {
-        if (skill && skill.desc !== "") break;
-        skill = this.meterData.skill.get(skillId - (skillId % 10) - i * 10);
-      }
-      /*
-      if (!skill || skill?.desc === "") {
-        //TODO: hotfix, surely wrong: we should look into how to track summon skills source
-        const tmpSkill = this.meterData.skill.get(skillId - (skillId % 10) - 10);
-        if (tmpSkill?.desc !== "") skill = tmpSkill;
-      }
-      */
-      if (skill) {
-        return { name: skill.name, icon: skill.icon };
+
+      if (skill.summonsourceskill) {
+        skill = this.meterData.skill.get(skill.summonsourceskill);
+        if (skill) {
+          return { name: skill.name + " (Summon)", icon: skill.icon };
+        } else {
+          return { name: skillName, icon: "" };
+        }
       } else {
-        return { name: skillName, icon: "" };
+        return { name: skill.name, icon: skill.icon };
       }
     }
   }
@@ -890,14 +885,28 @@ export class LogParser extends EventEmitter {
       },
     };
     if (buffcategory === "classskill" || buffcategory === "identity") {
-      const skillId = Math.floor(buffId / 100) * 10;
-      const buffSourceSkill = this.meterData.skill.get(skillId);
-
+      let buffSourceSkill;
+      if (buff.sourceskills && buff.sourceskills.length > 0) {
+        // Source skill from db
+        buffSourceSkill = this.meterData.skill.get(buff.sourceskills[0]!);
+        if (buffSourceSkill) statusEffect.source.skill = buffSourceSkill;
+      } else {
+        // Try to guess
+        const skillId = Math.floor(buffId / 100) * 10;
+        buffSourceSkill = this.meterData.skill.get(skillId);
+      }
       if (buffSourceSkill) statusEffect.source.skill = buffSourceSkill;
     } else if (buffcategory === "ability" && buff.uniquegroup !== 0) {
-      const skillId = Math.floor(buff.uniquegroup / 100) * 10;
-      const buffSourceSkill = this.meterData.skill.get(skillId);
-
+      let buffSourceSkill;
+      if (buff.sourceskills && buff.sourceskills.length > 0) {
+        // Source skill from db
+        buffSourceSkill = this.meterData.skill.get(buff.sourceskills[0]!);
+        if (buffSourceSkill) statusEffect.source.skill = buffSourceSkill;
+      } else {
+        // Try to guess
+        const skillId = Math.floor(buff.uniquegroup / 100) * 10;
+        buffSourceSkill = this.meterData.skill.get(skillId);
+      }
       if (buffSourceSkill) statusEffect.source.skill = buffSourceSkill;
     } else if (buffcategory === "set" && buff.setname) {
       statusEffect.source.setname = buff.setname;
