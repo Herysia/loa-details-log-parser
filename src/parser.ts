@@ -852,6 +852,13 @@ export class LogParser extends EventEmitter {
         } else {
           return { name: skillName, icon: "" };
         }
+      } else if (skill.sourceskill) {
+        skill = this.meterData.skill.get(skill.sourceskill);
+        if (skill) {
+          return { name: skill.name, icon: skill.icon };
+        } else {
+          return { name: skillName, icon: "" };
+        }
       } else {
         return { name: skill.name, icon: skill.icon };
       }
@@ -886,25 +893,27 @@ export class LogParser extends EventEmitter {
     };
     if (buffcategory === "classskill" || buffcategory === "identity") {
       let buffSourceSkill;
-      if (buff.sourceskills && buff.sourceskills.length > 0) {
+      if (buff.sourceskill) {
         // Source skill from db
-        buffSourceSkill = this.meterData.skill.get(buff.sourceskills[0]!);
+        buffSourceSkill = this.meterData.skill.get(buff.sourceskill);
         if (buffSourceSkill) statusEffect.source.skill = buffSourceSkill;
       } else {
         // Try to guess
-        const skillId = Math.floor(buffId / 100) * 10;
+        //const skillId = Math.floor(buff.uniquegroup / 100) * 10;
+        const skillId = Math.floor(buff.uniquegroup / 10);
         buffSourceSkill = this.meterData.skill.get(skillId);
       }
       if (buffSourceSkill) statusEffect.source.skill = buffSourceSkill;
     } else if (buffcategory === "ability" && buff.uniquegroup !== 0) {
       let buffSourceSkill;
-      if (buff.sourceskills && buff.sourceskills.length > 0) {
+      if (buff.sourceskill) {
         // Source skill from db
-        buffSourceSkill = this.meterData.skill.get(buff.sourceskills[0]!);
+        buffSourceSkill = this.meterData.skill.get(buff.sourceskill);
         if (buffSourceSkill) statusEffect.source.skill = buffSourceSkill;
       } else {
         // Try to guess
-        const skillId = Math.floor(buff.uniquegroup / 100) * 10;
+        //const skillId = Math.floor(buff.uniquegroup / 100) * 10;
+        const skillId = Math.floor(buff.uniquegroup / 10);
         buffSourceSkill = this.meterData.skill.get(skillId);
       }
       if (buffSourceSkill) statusEffect.source.skill = buffSourceSkill;

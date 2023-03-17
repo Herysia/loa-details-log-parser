@@ -470,7 +470,7 @@
   "version" "1.4.1"
 
 "meter-core@github:lost-ark-dev/meter-core":
-  "resolved" "git+ssh://git@github.com/lost-ark-dev/meter-core.git#429bb8016850ce31e54dccd21a8fbe952e9596da"
+  "resolved" "git+ssh://git@github.com/lost-ark-dev/meter-core.git#091593035885658bdf7b3260fc3d5277b78e148f"
   "version" "0.0.0"
   dependencies:
     "cap" "^0.2.1"
