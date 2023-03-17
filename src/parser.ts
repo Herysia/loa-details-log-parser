@@ -833,6 +833,10 @@ export class LogParser extends EventEmitter {
       // See stagger meter for reference
       if (effect && effect.itemname) {
         return { name: effect.itemname, icon: effect.icon ?? "" };
+      } else if (effect && effect.sourceskill) {
+        const skill = this.meterData.skill.get(effect.sourceskill);
+        if (skill) return { name: skill.name, icon: skill.icon };
+        else return { name: effect.comment };
       } else if (effect) {
         return { name: effect.comment };
       } else {
