@@ -833,11 +833,14 @@ export class LogParser extends EventEmitter {
       // See stagger meter for reference
       if (effect && effect.itemname) {
         return { name: effect.itemname, icon: effect.icon ?? "" };
-      } else if (effect && effect.sourceskill) {
-        const skill = this.meterData.skill.get(effect.sourceskill);
-        if (skill) return { name: skill.name, icon: skill.icon };
-        else return { name: effect.comment };
       } else if (effect) {
+        if (effect.sourceskill) {
+          const skill = this.meterData.skill.get(effect.sourceskill);
+          if (skill) return { name: skill.name, icon: skill.icon };
+        } else {
+          const skill = this.meterData.skill.get(Math.floor(skillEffectId / 10));
+          if (skill) return { name: skill.name, icon: skill.icon };
+        }
         return { name: effect.comment };
       } else {
         return { name: skillName };
@@ -904,8 +907,13 @@ export class LogParser extends EventEmitter {
       } else {
         // Try to guess
         //const skillId = Math.floor(buff.uniquegroup / 100) * 10;
-        const skillId = Math.floor(buff.uniquegroup / 10);
+        const skillId = Math.floor(buffId / 10);
         buffSourceSkill = this.meterData.skill.get(skillId);
+        if (!buffSourceSkill) {
+          const skillId = Math.floor(buff.uniquegroup / 10);
+          buffSourceSkill = this.meterData.skill.get(skillId);
+        }
+        if (buffSourceSkill) statusEffect.source.skill = buffSourceSkill;
       }
       if (buffSourceSkill) statusEffect.source.skill = buffSourceSkill;
     } else if (buffcategory === "ability" && buff.uniquegroup !== 0) {
@@ -917,8 +925,12 @@ export class LogParser extends EventEmitter {
       } else {
         // Try to guess
         //const skillId = Math.floor(buff.uniquegroup / 100) * 10;
-        const skillId = Math.floor(buff.uniquegroup / 10);
+        const skillId = Math.floor(buffId / 10);
         buffSourceSkill = this.meterData.skill.get(skillId);
+        if (!buffSourceSkill) {
+          const skillId = Math.floor(buff.uniquegroup / 10);
+          buffSourceSkill = this.meterData.skill.get(skillId);
+        }
       }
       if (buffSourceSkill) statusEffect.source.skill = buffSourceSkill;
     } else if (buffcategory === "set" && buff.setname) {
