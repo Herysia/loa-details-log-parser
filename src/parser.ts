@@ -907,10 +907,10 @@ export class LogParser extends EventEmitter {
       } else {
         // Try to guess
         //const skillId = Math.floor(buff.uniquegroup / 100) * 10;
-        const skillId = Math.floor(buffId / 10);
+        const skillId = Math.floor(buffId / 100) * 10;
         buffSourceSkill = this.meterData.skill.get(skillId);
         if (!buffSourceSkill) {
-          const skillId = Math.floor(buff.uniquegroup / 10);
+          const skillId = Math.floor(buff.uniquegroup / 100) * 10;
           buffSourceSkill = this.meterData.skill.get(skillId);
         }
         if (buffSourceSkill) statusEffect.source.skill = buffSourceSkill;
@@ -925,10 +925,10 @@ export class LogParser extends EventEmitter {
       } else {
         // Try to guess
         //const skillId = Math.floor(buff.uniquegroup / 100) * 10;
-        const skillId = Math.floor(buffId / 10);
+        const skillId = Math.floor(buffId / 100) * 10;
         buffSourceSkill = this.meterData.skill.get(skillId);
         if (!buffSourceSkill) {
-          const skillId = Math.floor(buff.uniquegroup / 10);
+          const skillId = Math.floor(buff.uniquegroup / 100) * 10;
           buffSourceSkill = this.meterData.skill.get(skillId);
         }
       }
