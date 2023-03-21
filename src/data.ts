@@ -52,14 +52,14 @@ export interface Game {
   lastCombatPacket: number;
   fightStartedOn: number;
   localPlayer: string;
-  entities: { [name: string]: Entity };
+  entities: Map<string, Entity>;
   damageStatistics: DamageStatistics;
 }
 export interface GameNew {
   startedOn: number;
   lastCombatPacket: number;
   fightStartedOn: number;
-  entities: { [name: string]: Entity };
+  entities: Map<string, Entity>;
   damageStatistics: DamageStatistics;
 }
 export interface HealSource {
@@ -87,7 +87,7 @@ export interface Entity {
   healingDone: number;
   shieldDone: number;
   damageTaken: number;
-  skills: { [name: string]: EntitySkills };
+  skills: Map<number, EntitySkills>;
   hits: Hits;
   damageDealtDebuffedBy: Map<number, number>;
   damageDealtBuffedBy: Map<number, number>;
