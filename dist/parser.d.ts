@@ -1,6 +1,6 @@
-import { Game, HealSource, EntitySkills, Hits, StatusEffect, StatusEffectBuffTypeFlags } from './data.js';
 import { EventEmitter } from 'events';
 import { MeterData, SkillBuff } from 'meter-core/data';
+import { Game, HealSource, Entity, StatusEffect, StatusEffectBuffTypeFlags } from './data.js';
 
 declare class LogParser extends EventEmitter {
     resetTimer: ReturnType<typeof setTimeout> | null;
@@ -24,33 +24,7 @@ declare class LogParser extends EventEmitter {
     splitEncounter(softReset?: boolean): void;
     broadcastStateChange(): void;
     parseLogLine(line: string): void;
-    updateEntity(entityName: string, values: Record<string, unknown>): {
-        lastUpdate: number;
-        id: string;
-        npcId: number;
-        name: string;
-        class: string;
-        classId: number;
-        isPlayer: boolean;
-        isDead: boolean;
-        deaths: number;
-        deathTime: number;
-        gearScore: number;
-        currentHp: number;
-        maxHp: number;
-        damageDealt: number;
-        damageDealtDebuffedBySupport: number;
-        damageDealtBuffedBySupport: number;
-        healingDone: number;
-        shieldDone: number;
-        damageTaken: number;
-        skills: {
-            [name: string]: EntitySkills;
-        };
-        hits: Hits;
-        damageDealtDebuffedBy: Map<number, number>;
-        damageDealtBuffedBy: Map<number, number>;
-    };
+    updateEntity(entityName: string, values: Record<string, unknown>): Entity;
     onMessage(lineSplit: string[]): void;
     onInitEnv(lineSplit: string[]): void;
     onPhaseTransition(lineSplit: string[]): void;
