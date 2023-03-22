@@ -166,6 +166,7 @@ export class LogParser extends EventEmitter {
       lastCombatPacket: curTime,
       fightStartedOn: 0,
       localPlayer: this.game?.localPlayer ?? "", //We never reset localplayer outside of initenv or initpc
+      currentBoss: undefined,
       entities: new Map(),
       damageStatistics: {
         totalDamageDealt: 0,
@@ -199,9 +200,10 @@ export class LogParser extends EventEmitter {
   softReset() {
     this.resetTimer = null;
     const entitiesCopy = cloneDeep(this.game.entities);
+    const currentBossCopy = cloneDeep(this.game.currentBoss);
     this.resetState();
     entitiesCopy.forEach((entity) => {
-      this.updateEntity(entity.name, {
+      const ent = this.updateEntity(entity.name, {
         name: entity.name,
         npcId: entity.npcId,
         class: entity.class,
@@ -211,6 +213,9 @@ export class LogParser extends EventEmitter {
         maxHp: entity.maxHp,
         currentHp: entity.currentHp,
       });
+      if (ent.id === currentBossCopy?.id) {
+        this.game.currentBoss = ent;
+      }
     });
   }
   cancelReset() {
@@ -230,17 +235,19 @@ export class LogParser extends EventEmitter {
 
   broadcastStateChange() {
     const clone: Game = { ...this.game };
-    clone.entities.forEach((e, k, m) => {
+    clone.entities = new Map();
+    this.game.entities.forEach((e, k, m) => {
       // Remove all entities that are not players (if live)
       if (!e.isPlayer) {
-        m.delete(k);
         return;
       }
-      e.skills = new Map(e.skills);
-      e.skills.forEach((s) => {
+      const eCopy = { ...e };
+      eCopy.skills = new Map(e.skills);
+      eCopy.skills.forEach((s) => {
         // Dont send breakdowns; will hang up UI
         s.breakdown = [];
       });
+      clone.entities.set(k, eCopy);
     });
 
     this.emit("state-change", clone);
@@ -300,22 +307,17 @@ export class LogParser extends EventEmitter {
 
   updateEntity(entityName: string, values: Record<string, unknown>) {
     const updateTime = { lastUpdate: +new Date() };
-    let entity;
-    if (!this.game.entities.has(entityName)) {
-      entity = {
-        ...createEntity(),
-        ...values,
-        ...updateTime,
-      };
+    let entity = this.game.entities.get(entityName);
+    if (entity) {
+      Object.assign(entity, values, updateTime);
     } else {
       entity = {
         ...createEntity(),
-        ...this.game.entities.get(entityName),
         ...values,
         ...updateTime,
       };
+      this.game.entities.set(entityName, entity);
     }
-    this.game.entities.set(entityName, entity);
     return entity;
   }
 
@@ -442,8 +444,7 @@ export class LogParser extends EventEmitter {
         message: `onNewNpc: ${logLine.id}, ${logLine.name}, ${logLine.currentHp}, ${logLine.maxHp}`,
       });
     }
-
-    this.updateEntity(logLine.name, {
+    const entity = this.updateEntity(logLine.name, {
       id: logLine.id,
       name: logLine.name,
       npcId: logLine.npcId,
@@ -451,6 +452,13 @@ export class LogParser extends EventEmitter {
       currentHp: logLine.currentHp,
       maxHp: logLine.maxHp,
     });
+
+    if (!this.game.currentBoss || logLine.maxHp > this.game.currentBoss.maxHp) {
+      const npc = this.meterData.npc.get(logLine.npcId);
+      if (npc && ["boss", "raid", "epic_raid", "commander"].includes(npc.grade)) {
+        this.game.currentBoss = entity;
+      }
+    }
   }
 
   // logId = 5
@@ -497,12 +505,11 @@ export class LogParser extends EventEmitter {
       });
     }
 
-    this.updateEntity(logLine.name, {
+    const entity = this.updateEntity(logLine.name, {
       name: logLine.name,
       isDead: false,
     });
 
-    const entity = this.game.entities.get(logLine.name);
     if (entity) {
       entity.hits.casts += 1;
       let skill = entity.skills.get(logLine.skillId);

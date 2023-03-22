@@ -59,7 +59,7 @@ export function fileParserWorker(options: FileWorkerOptions, callback: CallableF
           isPlayer: false,
         };
 
-        for (const i of Object.values(encounter.entities)) {
+        encounter.entities.forEach((i) => {
           if (i.damageTaken > mostDamageTakenEntity.damageTaken) {
             mostDamageTakenEntity = {
               name: i.name,
@@ -67,7 +67,7 @@ export function fileParserWorker(options: FileWorkerOptions, callback: CallableF
               isPlayer: i.isPlayer,
             };
           }
-        }
+        });
 
         const encounterDetails = {
           duration,

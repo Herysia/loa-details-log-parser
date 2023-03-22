@@ -52,6 +52,7 @@ export interface Game {
   lastCombatPacket: number;
   fightStartedOn: number;
   localPlayer: string;
+  currentBoss: Entity | undefined;
   entities: Map<string, Entity>;
   damageStatistics: DamageStatistics;
 }
