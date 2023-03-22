@@ -213,7 +213,7 @@ export class LogParser extends EventEmitter {
         maxHp: entity.maxHp,
         currentHp: entity.currentHp,
       });
-      if (ent.id === currentBossCopy?.id) {
+      if (ent.name === currentBossCopy?.name) {
         this.game.currentBoss = ent;
       }
     });
