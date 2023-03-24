@@ -422,7 +422,7 @@ export class LogParser extends EventEmitter {
         this.game.localPlayer = logLine.name;
       }
     }
-    this.updateEntity(logLine.name, {
+    const newEntity = {
       id: logLine.id,
       name: logLine.name,
       class: logLine.class,
@@ -431,7 +431,17 @@ export class LogParser extends EventEmitter {
       ...(logLine.gearScore && logLine.gearScore != 0 && { gearScore: logLine.gearScore }),
       currentHp: logLine.currentHp,
       maxHp: logLine.maxHp,
-    });
+    };
+    // We look for entity with the same Id
+    for (const [k, e] of this.game.entities) {
+      if (logLine.id === e.id) {
+        this.game.entities.delete(k);
+        this.updateEntity(logLine.name, { ...e, ...newEntity });
+        return;
+      }
+    }
+    //We found no entity with the same id, create new one
+    this.updateEntity(logLine.name, newEntity);
   }
 
   // logId = 4
