@@ -5,7 +5,9 @@ type FileWorkerOptions = {
     splitOnPhaseTransition: boolean;
     mainFolder: string;
     parsedLogFolder: string;
-    meterData: MeterData;
+    meterData?: MeterData;
+    meterDataPath?: string;
+    dbPath?: string;
 };
 declare function fileParserWorker(options: FileWorkerOptions, callback: CallableFunction): any;
 

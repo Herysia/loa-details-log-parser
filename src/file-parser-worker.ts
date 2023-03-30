@@ -1,12 +1,11 @@
 import dayjs from "dayjs";
 import { LogParser } from "./parser";
 import { v4 as uuidv4 } from "uuid";
-import type { MeterData } from "meter-core/dist/data";
-
 import fs from "fs";
 import path from "path";
 
 import customParseFormat from "dayjs/plugin/customParseFormat";
+import type { MeterData } from "meter-core/dist/data";
 dayjs.extend(customParseFormat);
 type Encounter = {
   encounterId: string;
@@ -23,7 +22,9 @@ export type FileWorkerOptions = {
   splitOnPhaseTransition: boolean;
   mainFolder: string;
   parsedLogFolder: string;
-  meterData: MeterData;
+  meterData?: MeterData;
+  meterDataPath?: string;
+  dbPath?: string;
 };
 
 export function fileParserWorker(options: FileWorkerOptions, callback: CallableFunction) {
@@ -34,7 +35,15 @@ export function fileParserWorker(options: FileWorkerOptions, callback: CallableF
     const contents = fs.readFileSync(path.join(options.mainFolder, options.filename), "utf-8");
     if (!contents) return callback(null, "empty log");
 
-    const logParser = new LogParser(options.meterData, false);
+    let meterData;
+    if (options.meterData) {
+      meterData = options.meterData;
+    } else if (options.meterDataPath && options.dbPath) {
+      meterData = new (require(options.meterDataPath).MeterData as typeof MeterData)();
+      meterData.loadDbs(options.dbPath);
+    } else return callback(null, "no meter-data");
+
+    const logParser = new LogParser(meterData, false);
     if (options.splitOnPhaseTransition === true) logParser.splitOnPhaseTransition = true;
 
     const lines = contents.split("\n").filter((x) => x != null && x != "");

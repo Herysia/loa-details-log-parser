@@ -52,6 +52,7 @@ function createEntity(): Entity {
     name: "",
     class: "",
     classId: 0,
+    isBoss: false,
     isPlayer: false,
     isDead: false,
     deaths: 0,
@@ -454,6 +455,11 @@ export class LogParser extends EventEmitter {
         message: `onNewNpc: ${logLine.id}, ${logLine.name}, ${logLine.currentHp}, ${logLine.maxHp}`,
       });
     }
+    let isBoss = false;
+    const npc = this.meterData.npc.get(logLine.npcId);
+    if (npc && ["boss", "raid", "epic_raid", "commander"].includes(npc.grade)) {
+      isBoss = true;
+    }
     const entity = this.updateEntity(logLine.name, {
       id: logLine.id,
       name: logLine.name,
@@ -461,13 +467,11 @@ export class LogParser extends EventEmitter {
       isPlayer: false,
       currentHp: logLine.currentHp,
       maxHp: logLine.maxHp,
+      isBoss,
     });
 
-    if (!this.game.currentBoss || logLine.maxHp > this.game.currentBoss.maxHp) {
-      const npc = this.meterData.npc.get(logLine.npcId);
-      if (npc && ["boss", "raid", "epic_raid", "commander"].includes(npc.grade)) {
-        this.game.currentBoss = entity;
-      }
+    if (entity.isBoss && (!this.game.currentBoss || this.game.currentBoss.currentHp === this.game.currentBoss.maxHp)) {
+      this.game.currentBoss = entity;
     }
   }
 
@@ -761,6 +765,11 @@ export class LogParser extends EventEmitter {
         this.game.damageStatistics.topDamageTaken,
         damageTarget.damageTaken
       );
+    }
+
+    // Update tracked boss hp
+    if (damageTarget.isBoss) {
+      this.game.currentBoss = damageTarget;
     }
 
     if (this.game.fightStartedOn === 0) this.game.fightStartedOn = +logLine.timestamp;

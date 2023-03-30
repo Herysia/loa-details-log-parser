@@ -75,6 +75,7 @@ export interface Entity {
   name: string;
   class: string;
   classId: number;
+  isBoss: boolean;
   isPlayer: boolean;
   isDead: boolean;
   deaths: number;
