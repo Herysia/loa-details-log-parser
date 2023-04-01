@@ -210,6 +210,7 @@ export class LogParser extends EventEmitter {
         class: entity.class,
         classId: entity.classId,
         isPlayer: entity.isPlayer,
+        isBoss: entity.isBoss,
         gearScore: entity.gearScore,
         maxHp: entity.maxHp,
         currentHp: entity.currentHp,
@@ -470,7 +471,12 @@ export class LogParser extends EventEmitter {
       isBoss,
     });
 
-    if (entity.isBoss && (!this.game.currentBoss || this.game.currentBoss.currentHp === this.game.currentBoss.maxHp)) {
+    if (
+      entity.isBoss &&
+      (!this.game.currentBoss ||
+        this.game.currentBoss.currentHp === this.game.currentBoss.maxHp ||
+        this.game.currentBoss.isDead)
+    ) {
       this.game.currentBoss = entity;
     }
   }
