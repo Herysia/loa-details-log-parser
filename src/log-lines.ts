@@ -154,8 +154,8 @@ export class LogDamage extends LogLine {
   damageModifier: number;
   currentHp: number;
   maxHp: number;
-  statusEffectsOnTarget: (number|string)[][];
-  statusEffectsOnSource: (number|string)[][];
+  statusEffectsOnTarget: [number, string, number][];
+  statusEffectsOnSource: [number, string, number][];
 
   constructor(lineSplit: string[]) {
     super(lineSplit);
@@ -175,25 +175,42 @@ export class LogDamage extends LogLine {
     this.statusEffectsOnTarget = [];
     this.statusEffectsOnSource = []
     if (lineSplit.length >= 17) {
-      let isEntityId:boolean = false;
-      let lastStatusEffectId:number = 0;
+      let stage: number = 0; // 0=statuseffecId, 1=sourceId, 2=stacks
+      let lastStatusEffectId: number = 0;
+      let lastSourceId: string = "";
       for(var e of lineSplit[14]!.split(",")) {
-        if (isEntityId) {
-          this.statusEffectsOnTarget.push([lastStatusEffectId, e])
-          isEntityId = false;
-        } else {
-          lastStatusEffectId = tryParseInt(e);
-          isEntityId = true;
+        switch(stage) {
+          case 0:
+            stage++;
+            lastStatusEffectId = tryParseInt(e);
+            break;
+          case 1:
+            stage++;
+            lastSourceId = e;
+            break;
+          case 2:
+            stage = 0;
+            let stacks = tryParseInt(e);
+            this.statusEffectsOnTarget.push([lastStatusEffectId, lastSourceId, stacks]);
+            break;
         }
       }
-      isEntityId = false;
+      stage = 0;
       for(var e of lineSplit[15]!.split(",")) {
-        if (isEntityId) {
-          this.statusEffectsOnSource.push([lastStatusEffectId, e])
-          isEntityId = false;
-        } else {
-          lastStatusEffectId = tryParseInt(e);
-          isEntityId = true;
+        switch(stage) {
+          case 0:
+            stage++;
+            lastStatusEffectId = tryParseInt(e);
+            break;
+          case 1:
+            stage++;
+            lastSourceId = e;
+            break;
+          case 2:
+            stage = 0;
+            let stacks = tryParseInt(e);
+            this.statusEffectsOnSource.push([lastStatusEffectId, lastSourceId, stacks]);
+            break;
         }
       }
     }
