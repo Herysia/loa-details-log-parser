@@ -65,6 +65,7 @@ function createEntity(): Entity {
     damageDealtBuffedBySupport: 0,
     healingDone: 0,
     shieldDone: 0,
+    shieldReceived: 0,
     damageTaken: 0,
     skills: new Map(),
     hits: {
@@ -81,6 +82,12 @@ function createEntity(): Entity {
     },
     damageDealtDebuffedBy: new Map(),
     damageDealtBuffedBy: new Map(),
+    damagePreventedWithShieldOnOthers: 0,
+    damagePreventedByShield: 0,
+    damagePreventedByShieldBy: new Map(),
+    damagePreventedWithShieldOnOthersBy: new Map(),
+    shieldDoneBy: new Map(),
+    shieldReceivedBy: new Map(),
   };
   return newEntity;
 }
@@ -178,8 +185,14 @@ export class LogParser extends EventEmitter {
         topHealingDone: 0,
         totalShieldDone: 0,
         topShieldDone: 0,
+        topShieldGotten: 0,
         debuffs: new Map(),
         buffs: new Map(),
+        appliedShieldingBuffs: new Map(),
+        effectiveShieldingBuffs: new Map(),
+        topEffectiveShieldingDone: 0,
+        topEffectiveShieldingUsed: 0,
+        totalEffectiveShieldingDone: 0,
       },
     };
 
@@ -300,6 +313,12 @@ export class LogParser extends EventEmitter {
           break;
         case 12:
           this.onCounterattack(lineSplit);
+          break;
+        case 13:
+          this.onShieldUsed(lineSplit);
+          break;
+        case 14:
+          this.onShieldApplied(lineSplit);
           break;
       }
     } catch (e) {
@@ -863,6 +882,90 @@ export class LogParser extends EventEmitter {
     // TODO: Add skill name from logger
     entity.hits.counter += 1;
   }
+
+  // logId 13
+  onShieldUsed(lineSplit: string[]) {
+    const logLine = new LogLines.LogShieldUsed(lineSplit);
+    if (this.debugLines) {
+      this.emit("log", {
+        type: "debug",
+        message: `onShieldUsed: ${logLine.targetObjectId}, ${logLine.sourceObjectId}, ${logLine.statusEffectId}, ${logLine.newValue}, ${logLine.change}`,
+      });
+    }
+    if (logLine.change < 0) {
+      console.error("Shield change values was negative");
+    }
+
+    const targetEntity = this.game.entities[logLine.targetName];
+    const sourceEntity = this.game.entities[logLine.sourceName];
+    if (targetEntity && targetEntity.isPlayer && sourceEntity && sourceEntity.isPlayer) {
+
+      if (!this.game.damageStatistics.effectiveShieldingBuffs.has(logLine.statusEffectId)) {
+        const statusEffect = this.game.damageStatistics.appliedShieldingBuffs.get(logLine.statusEffectId)
+          ?? this.game.damageStatistics.buffs.get(logLine.statusEffectId)
+          ?? this.getStatusEffectHeaderData(logLine.statusEffectId);
+        if (statusEffect) {
+          this.game.damageStatistics.effectiveShieldingBuffs.set(logLine.statusEffectId, statusEffect);
+        }
+      }
+
+      targetEntity.damagePreventedByShield += logLine.change;
+
+      const oldDmgPreventedBy = targetEntity.damagePreventedByShieldBy.get(logLine.statusEffectId) ?? 0;
+      targetEntity.damagePreventedByShieldBy.set(logLine.statusEffectId, oldDmgPreventedBy+logLine.change);
+
+      this.game.damageStatistics.topEffectiveShieldingUsed = Math.max(targetEntity.damagePreventedByShield, this.game.damageStatistics.topEffectiveShieldingUsed);
+
+
+      sourceEntity.damagePreventedWithShieldOnOthers += logLine.change;
+
+      const oldDmgPreventedWith = sourceEntity.damagePreventedWithShieldOnOthersBy.get(logLine.statusEffectId) ?? 0;
+      sourceEntity.damagePreventedWithShieldOnOthersBy.set(logLine.statusEffectId, oldDmgPreventedWith+logLine.change);
+
+      this.game.damageStatistics.topEffectiveShieldingDone = Math.max(sourceEntity.damagePreventedWithShieldOnOthers, this.game.damageStatistics.topEffectiveShieldingDone);
+
+      this.game.damageStatistics.totalEffectiveShieldingDone += logLine.change;
+    }
+  }
+
+  // logId 14
+  onShieldApplied(lineSplit: string[]) {
+    const logLine = new LogLines.LogShieldApplied(lineSplit);
+    if (this.debugLines) {
+      this.emit("log", {
+        type: "debug",
+        message: `onShieldApplied: ${logLine.targetObjectId}, ${logLine.sourceObjectId}, ${logLine.statusEffectId}, ${logLine.value}`,
+      });
+    }
+
+    const targetEntity = this.game.entities[logLine.targetName];
+    const sourceEntity = this.game.entities[logLine.sourceName];
+
+    if (sourceEntity?.isPlayer && targetEntity?.isPlayer) {
+      if (!this.game.damageStatistics.appliedShieldingBuffs.has(logLine.statusEffectId)) {
+        const statusEffect = this.game.damageStatistics.effectiveShieldingBuffs.get(logLine.statusEffectId)
+          ?? this.game.damageStatistics.buffs.get(logLine.statusEffectId)
+          ?? this.getStatusEffectHeaderData(logLine.statusEffectId);
+        if (statusEffect) {
+          this.game.damageStatistics.appliedShieldingBuffs.set(logLine.statusEffectId, statusEffect);
+        }
+      }
+
+      targetEntity.shieldReceived += logLine.value;
+      sourceEntity.shieldDone += logLine.value;
+
+      const oldDoneByValue = sourceEntity.shieldDoneBy.get(logLine.statusEffectId) ?? 0;
+      sourceEntity.shieldDoneBy.set(logLine.statusEffectId, oldDoneByValue+logLine.value);
+
+      const oldReceivedByValue = targetEntity.shieldReceivedBy.get(logLine.statusEffectId) ?? 0;
+      targetEntity.shieldReceivedBy.set(logLine.statusEffectId, oldReceivedByValue+logLine.value);
+
+      this.game.damageStatistics.topShieldDone = Math.max(sourceEntity.shieldDone, this.game.damageStatistics.topShieldDone);
+      this.game.damageStatistics.topShieldGotten = Math.max(sourceEntity.shieldReceived, this.game.damageStatistics.topShieldGotten);
+      this.game.damageStatistics.totalShieldDone += logLine.value;
+    }
+  }
+
   getSkillNameIcon(skillId: number, skillEffectId: number, skillName: string): { name: string; icon?: string } {
     if (skillId === 0 && skillEffectId === 0) {
       return { name: "Bleed", icon: "buff_168.png" };

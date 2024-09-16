@@ -255,3 +255,47 @@ export class LogCounterattack extends LogLine {
     this.targetName = lineSplit[5] || "Unknown Entity"; */
   }
 }
+
+// logId = 13
+export class LogShieldUsed extends LogLine {
+  targetObjectId: string;
+  targetName: string;
+  sourceObjectId: string;
+  sourceName: string;
+  statusEffectId: number;
+  newValue: number;
+  change: number;
+
+  constructor(lineSplit: string[]) {
+    super(lineSplit);
+
+    this.targetObjectId = lineSplit[2]!;
+    this.targetName = lineSplit[3]!;
+    this.sourceObjectId = lineSplit[4]!;
+    this.sourceName = lineSplit[5]!;
+    this.statusEffectId = tryParseInt(lineSplit[6]!);
+    this.newValue = tryParseInt(lineSplit[7]!);
+    this.change = tryParseInt(lineSplit[8]!);
+  }
+}
+
+// logId = 14
+export class LogShieldApplied extends LogLine {
+  targetObjectId: string;
+  targetName: string;
+  sourceObjectId: string;
+  sourceName: string;
+  statusEffectId: number;
+  value: number;
+
+  constructor(lineSplit: string[]) {
+    super(lineSplit);
+
+    this.targetObjectId = lineSplit[2]!;
+    this.targetName = lineSplit[3]!;
+    this.sourceObjectId = lineSplit[4]!;
+    this.sourceName = lineSplit[5]!;
+    this.statusEffectId = tryParseInt(lineSplit[6]!);
+    this.value = tryParseInt(lineSplit[7]!);
+  }
+}
